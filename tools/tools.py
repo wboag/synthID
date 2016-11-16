@@ -107,8 +107,8 @@ def read_tags(sents, tags_file):
         #print 
         #print sents[lineno][start:end+1]
         #print nltk.word_tokenize(segment)
-        #assert sents[lineno][start:end+1] == nltk.word_tokenize(segment)
-        print 'WARNING: skipping assertions of len(tokens) == len(tags)'
+        assert sents[lineno][start:end+1] == nltk.word_tokenize(segment)
+        #print 'WARNING: skipping assertions of len(tokens) == len(tags)'
 
         tags[lineno][start] = 'B-%s' % label
         for i in range(end-start):
@@ -234,7 +234,7 @@ def read_names(filename):
 
 # List of common names and hospials
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-lexica_dir = os.path.join(parent_dir,'lexica','final')
+lexica_dir = os.path.join(parent_dir, 'synth', 'lexica', 'final')
 male_names   = read_names(os.path.join(lexica_dir, 'names-male.txt'   ))
 female_names = read_names(os.path.join(lexica_dir, 'names-female.txt' ))
 last_names   = read_names(os.path.join(lexica_dir, 'names-surname.txt'))

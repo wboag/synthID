@@ -6,6 +6,13 @@ import glob
 import os
 
 import crf
+
+
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+tools_dir = os.path.join(base_path, 'tools')
+if tools_dir not in sys.path:
+    sys.path.append(tools_dir)
+
 from tools import flatten, save_list_structure, reconstruct_list
 from tools import read_txt, read_tags, extract_features
 
@@ -34,7 +41,10 @@ def main():
 
     if '--limit' in sys.argv:
         N = int(sys.argv[sys.argv.index('--limit')+1])
-        txt_file_list = txt_file_list[:N]
+    else:
+        N = len(txt_file_list)
+
+    txt_file_list = txt_file_list[:N]
 
     # read all text files for one large batch training set
     sentences = {}

@@ -6,6 +6,13 @@ import glob
 import os
 
 import crf
+
+
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+tools_dir = os.path.join(base_path, 'tools')
+if tools_dir not in sys.path:
+    sys.path.append(tools_dir)
+
 from tools import flatten, save_list_structure, reconstruct_list
 from tools import read_txt, print_predictions, extract_features
 
@@ -96,6 +103,8 @@ def main():
                     assert preds[i-1][0] != 'O' and preds[i][1:]==preds[i][1:]
 
         tags_file = os.path.join(out_dir, '%s.pred' % basename)
+
+        print tags_file
 
         # output to tags format
         print_predictions(tags_file, sents, pred_tags)
