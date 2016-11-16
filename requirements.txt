@@ -1,0 +1,4 @@
+nltk
+python-crfsuite
+psycopg2
+pandas

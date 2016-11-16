@@ -7,6 +7,7 @@ import random
 from collections import defaultdict
 import nltk
 import sys
+import os
 
 
 import phi
@@ -156,19 +157,28 @@ def main():
 
         name = 'record-%d-%d' % (subject_id,note_number)
 
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+        # ensure directories exist
+        data_dir = os.path.join(base_dir, 'data', 'all')
+        if not os.path.exists(data_dir):
+            os.mkdir(data_dir)
+            os.mkdir(os.path.join(data_dir, 'template'))
+            os.mkdir(os.path.join(data_dir, 'txt'     ))
+            os.mkdir(os.path.join(data_dir, 'tags'    ))
+
         # output template text to file
-        #with open('data/template/%s.txt' % name, 'w') as f:
-        with open('data/crunch/template/%s.txt' % name, 'w') as f:
+        with open('%s/data/all/template/%s.txt' % (base_dir,name), 'w') as f:
             print >>f, text
 
         # output re-id text to file
         #with open('data/txt/%s.txt' % name, 'w') as f:
-        with open('data/crunch/txt/%s.txt' % name, 'w') as f:
+        with open('%s/data/all/txt/%s.txt' % (base_dir,name), 'w') as f:
             print >>f, reid_text
 
         # out annotations to file
         #with  open('data/tags/%s.tags'%name, 'w') as f:
-        with  open('data/crunch/tags/%s.tags'%name, 'w') as f:
+        with  open('%s/data/all/tags/%s.tags'%(base_dir,name), 'w') as f:
             for lineno,start,end,entity,label in annotations:
                 '''
                 print 
