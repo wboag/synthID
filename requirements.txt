@@ -2,3 +2,5 @@ nltk
 python-crfsuite
 psycopg2
 pandas
+scikit-learn
+scipy
