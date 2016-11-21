@@ -187,17 +187,17 @@ def extract_features(sents):
             #'''
             # previous words (especially helpful for beginning-of-sentence words
             for j in range(1,prev_N+1):
-                for k in range(1):
+                for k in range(10):
                     prev_word = all_words[start-j]
                     features[('prev-unigram-%d'%j,k,prev_word)] = 1
             #'''
 
             # unigram (note: crfsuite has weird issues when given too few feats)
-            for j in range(1):
+            for j in range(10):
                 features[('unigram',j,w.lower())] = 1
 
             # is this word a common name?
-            for j in range(1):
+            for j in range(10):
                 if w.lower() in male_names:
                     features[('male_name',j)] = 1
                 if w.lower() in female_names:
@@ -209,7 +209,7 @@ def extract_features(sents):
 
             # next words (especially helpful for end-of-sentence words
             for j in range(1,prev_N+1):
-                for k in range(1):
+                for k in range(10):
                     prev_word = all_words[end+j]
                     features[('next-unigram-%d'%j,k,prev_word)] = 1
 
