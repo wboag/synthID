@@ -133,8 +133,8 @@ def main():
     confusion = { ref:{ pred:0 for pred in categories} for ref in categories }
     for i in range(len(tags)):
         for j in range(len(tags[i])):
-            gold = get_category(tags[i][j])
-            pred = get_category(tags[i][j])
+            gold = get_category(     tags[i][j])
+            pred = get_category(pred_tags[i][j])
 
             confusion[gold][pred] += 1
 

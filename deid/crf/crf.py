@@ -160,6 +160,10 @@ def predict(clf, X):
     i = 0
     for xseq in pycrf_instances(feats, labeled=False):
         yseq = [ int(n) for n in tagger.tag(xseq) ]
+        #print 
+        #print i
+        #print len(X[i])
+        #print len(xseq)
         assert len(X[i]) == len(xseq)
         i += 1
         retVal += list(yseq)

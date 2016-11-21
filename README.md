@@ -1,7 +1,6 @@
 # synthID
 Project for 6.864 with Hassan, Harini, and Sean.
 
-
 # setup
 
     $ git clone https://github.com/wboag/synthID.git
@@ -15,3 +14,11 @@ Project for 6.864 with Hassan, Harini, and Sean.
 
     # where to store predicted tag files
     $ mkdir data/predictions
+
+    $ python synth/synthid.py
+
+    $ mkdir data/predictions
+
+    $ python baseline/train_crf.py "data/all/txt/record-88452-*.txt" "data/all/tags/record-88452-*.tags" models/dummy.crf
+    $ python baseline/predict_crf.py "data/all/txt/record-88452-*.txt" data/predictions models/dummy.crf
+
