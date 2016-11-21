@@ -8,7 +8,7 @@ import os
 import crf
 
 
-base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 tools_dir = os.path.join(base_path, 'tools')
 if tools_dir not in sys.path:
     sys.path.append(tools_dir)
