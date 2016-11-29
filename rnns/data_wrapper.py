@@ -36,17 +36,14 @@ class DataReader(object):
 
     def get_train_batch(self, batch_size):
         tfrecords_filename = '../preprocessing/tfrecords/train.tfrecords'
-        return self.get_batch(batch_size, tfrecords_filename, True, False)
+        return self.get_batch(batch_size, tfrecords_filename, True)
 
     def get_test_batch(self, batch_size):
         tfrecords_filename = '../preprocessing/tfrecords/test.tfrecords'
-        return self.get_batch(batch_size, tfrecords_filename, False, True)
+        return self.get_batch(batch_size, tfrecords_filename, False)
 
-    def get_batch(self, batch_size, fname, shuffle, isTest):
-        if isTest:
-            queue = tf.train.string_input_producer([fname], shuffle=shuffle,num_epochs=1)
-        else:
-            queue = tf.train.string_input_producer([fname], shuffle=shuffle)
+    def get_batch(self, batch_size, fname, shuffle):
+        queue = tf.train.string_input_producer([fname], shuffle=shuffle)
         reader = tf.TFRecordReader()
         _, serialized_example = reader.read(queue)
         print _ , serialized_example.get_shape()

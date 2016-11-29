@@ -1,11 +1,13 @@
 import tensorflow as tf
 import data_wrapper
+import numpy as np
+
 
 batch_size = 128
-test_batch_size = 1000
+test_batch_size = 10000
 hidden_units = 32
 learning_rate = .005
-training_steps = 10
+training_steps = 10**5
 
 graph = tf.Graph()
 reader = data_wrapper.DataReader()
@@ -13,10 +15,9 @@ output_units = len(reader.tag_index)
 
 with graph.as_default():
 
-    train = tf.placeholder(tf.bool)
 
-    # TODO: fix this. the tf.cond() call isn't returning for some reason.
-    tokens, tags, lengths = tf.cond(train, lambda: reader.get_train_batch(batch_size), lambda: reader.get_test_batch(test_batch_size))
+    ## TRAINING 
+    tokens, tags, lengths = reader.get_train_batch(batch_size)
     inputs = tf.nn.embedding_lookup(tf.Variable(reader.embeddings), tokens)
 
     # simple LSTM with softmax output
@@ -33,24 +34,37 @@ with graph.as_default():
     loss = tf.reduce_sum(x_ent) / tf.cast(tf.reduce_sum(lengths), tf.float32)
     step = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 
-    init = tf.initialize_all_variables()
+    tf.get_variable_scope().reuse_variables()
 
+    ## TESTING 
+    test_tokens, test_tags, test_lengths = reader.get_test_batch(test_batch_size)
+    test_inputs = tf.nn.embedding_lookup(tf.Variable(reader.embeddings), test_tokens)
+
+    # simple LSTM with softmax output
+    a_test, _ = tf.nn.dynamic_rnn(cell, test_inputs, test_lengths, dtype=tf.float32)
+    z_test = tf.matmul(tf.reshape(a_test, [-1, hidden_units]), W) + b
+    z_test = tf.reshape(z_test, [test_batch_size, -1, output_units])
+
+    # calculate loss and backpropogate
+    test_preds = tf.argmax(z_test, 2)
+    test_x_ent = tf.nn.sparse_softmax_cross_entropy_with_logits(z_test, test_tags)
+    test_loss = tf.reduce_sum(test_x_ent) / tf.cast(tf.reduce_sum(test_lengths), tf.float32)
+
+    init = tf.initialize_all_variables()
+    init2 = tf.initialize_local_variables()
 
 with tf.Session(graph=graph) as session:
 
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(session, coord)
 
-    session.run(init)
-
-    print "here"
-    x, y, z = session.run([tokens, tags, lengths], feed_dict = {train: True})
-    print "here", x, y, z
+    session.run([init, init2])
 
     for step_num in range(training_steps):
-        _, batch_loss = session.run([step, loss], feed_dict = {train: True})
+        session.run(init2)
+        _, batch_loss = session.run([step, loss])
         if step_num % 100 == 0:
-            x, y, y_ = session.run([tokens, tags, preds], feed_dict = {train: True})
+            x, y, y_ = session.run([tokens, tags, preds])
             accuracy = 1.0 * ((y == y_) & (y != 0)).sum() / (y != 0).sum()
 
             # print some info about the batch
@@ -61,10 +75,14 @@ with tf.Session(graph=graph) as session:
             print 'Pred:    ', reader.decode_tags(y_[0][(y != 0)[0]][:15])
             print
 
-    test_real, test_pred, test_loss = session.run([tags, preds, loss], feed_dict = {train: False})
+    print('Testing')
+    
+    test_real, test_pred, test_loss = session.run([test_tags, test_preds, test_loss])
     test_acc = 1.0 * ((test_real == test_pred) & (test_real != 0)).sum() / (test_real != 0).sum()
+
     print 'Test Loss: ', test_loss
     print 'Test Accuracy: ', test_acc
+    print
 
     coord.request_stop()
     coord.join(threads)
