@@ -16,7 +16,7 @@ output_units = len(reader.tag_index)
 with graph.as_default():
 
 
-    ## TRAINING 
+    ## TRAINING
     tokens, tags, lengths = reader.get_train_batch(batch_size)
     inputs = tf.nn.embedding_lookup(tf.Variable(reader.embeddings), tokens)
 
@@ -26,7 +26,7 @@ with graph.as_default():
     W = tf.Variable(tf.random_normal([hidden_units, output_units]))
     b = tf.Variable(tf.zeros([output_units]))
     z = tf.matmul(tf.reshape(a, [-1, hidden_units]), W) + b
-    z = tf.reshape(z, [batch_size, -1, output_units])
+    z = tf.reshape(z, [-1, tf.shape(a)[1], output_units])
 
     # calculate loss and backpropogate
     preds = tf.argmax(z, 2)
@@ -36,14 +36,14 @@ with graph.as_default():
 
     tf.get_variable_scope().reuse_variables()
 
-    ## TESTING 
+    ## TESTING
     test_tokens, test_tags, test_lengths = reader.get_test_batch(test_batch_size)
     test_inputs = tf.nn.embedding_lookup(tf.Variable(reader.embeddings), test_tokens)
 
     # simple LSTM with softmax output
     a_test, _ = tf.nn.dynamic_rnn(cell, test_inputs, test_lengths, dtype=tf.float32)
     z_test = tf.matmul(tf.reshape(a_test, [-1, hidden_units]), W) + b
-    z_test = tf.reshape(z_test, [test_batch_size, -1, output_units])
+    z_test = tf.reshape(z_test, [-1, tf.shape(a_test)[1], output_units])
 
     # calculate loss and backpropogate
     test_preds = tf.argmax(z_test, 2)
@@ -76,7 +76,7 @@ with tf.Session(graph=graph) as session:
             print
 
     print('Testing')
-    
+
     test_real, test_pred, test_loss = session.run([test_tags, test_preds, test_loss])
     test_acc = 1.0 * ((test_real == test_pred) & (test_real != 0)).sum() / (test_real != 0).sum()
 

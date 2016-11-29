@@ -22,7 +22,7 @@ with graph.as_default():
     W = tf.Variable(tf.random_normal([hidden_units, output_units]))
     b = tf.Variable(tf.zeros([output_units]))
     z = tf.matmul(tf.reshape(a, [-1, hidden_units]), W) + b
-    z = tf.reshape(z, [batch_size, -1, output_units])
+    z = tf.reshape(z, [-1, tf.shape(a)[1], output_units])
 
     # calculate loss and backpropogate
     preds = tf.argmax(z, 2)
