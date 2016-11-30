@@ -5,10 +5,31 @@ batch_size = 20
 hidden_units = 32
 learning_rate = .005
 training_steps = 10**5
+empty_tag = 0
+outside_tag = 13
 
 graph = tf.Graph()
 reader = data_wrapper.DataReader()
 output_units = len(reader.tag_index)
+
+
+def recall(y,y_):
+    relevant=0.0
+    correct=0.0
+    for sent in range(len(y)):
+        for tag in range(len(y[sent])):
+            predicted = y_[sent][tag]
+            actual = y[sent][tag]
+            if actual!=empty_tag and actual!=outside_tag:
+                relevant+=1
+                if actual==predicted:
+                    correct+=1
+    if relevant:
+        return correct/relevant
+    else: 
+        return None
+
+
 
 with graph.as_default():
 
@@ -44,14 +65,18 @@ with tf.Session(graph=graph) as session:
         if step_num % 100 == 0:
             x, y, y_ = session.run([tokens, tags, preds])
             accuracy = 1.0 * ((y == y_) & (y != 0)).sum() / (y != 0).sum()
+            recall_data= recall(y_,y)
+
+
 
             # print some info about the batch
             print 'Loss:    ', batch_loss
+            if recall_data!=None:
+                print 'Recall: ',recall_data
             print 'Accuracy:', accuracy
             print 'Sentence:', reader.decode_tokens(x[0][(y != 0)[0]][:15])
             print 'Truth:   ', reader.decode_tags(y[0][(y != 0)[0]][:15])
             print 'Pred:    ', reader.decode_tags(y_[0][(y != 0)[0]][:15])
-            print
 
     coord.request_stop()
     coord.join(threads)
