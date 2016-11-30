@@ -28,7 +28,8 @@ def recall(y,y_):
         return correct/relevant
     else: 
         return None
-
+def f1(p,r):
+    return (2.0*p*r)/(p+r)
 
 
 with graph.as_default():
@@ -71,9 +72,10 @@ with tf.Session(graph=graph) as session:
 
             # print some info about the batch
             print 'Loss:    ', batch_loss
+            print 'Precision:  ', accuracy
             if recall_data!=None:
                 print 'Recall: ',recall_data
-            print 'Accuracy:', accuracy
+                print 'f1:   ', f1(recall_data,accuracy)
             print 'Sentence:', reader.decode_tokens(x[0][(y != 0)[0]][:15])
             print 'Truth:   ', reader.decode_tags(y[0][(y != 0)[0]][:15])
             print 'Pred:    ', reader.decode_tags(y_[0][(y != 0)[0]][:15])
