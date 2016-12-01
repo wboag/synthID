@@ -13,25 +13,66 @@ reader = data_wrapper.DataReader()
 output_units = len(reader.tag_index)
 
 
-def recall(y,y_):
-    relevant=0.0
-    correct=0.0
-    for sent in range(len(y)):
-        for tag in range(len(y[sent])):
-            predicted = y_[sent][tag]
-            actual = y[sent][tag]
-            if actual!=empty_tag and actual!=outside_tag:
-                relevant+=1
-                if actual==predicted:
-                    correct+=1
-    if relevant:
-        return correct/relevant
-    else: 
-        return None
+def precision(correct_tags,predicted_tags,binary=False):
+    '''Takes in a list of predictions, true tags and computes precision by defining:
+    False positive when actual = OUTSIDE and predicted a PHI
+    False Negative when actual = PHI and predicted = OUTSIDE
+    1) When binary is true :
+    True positive when actual = PHI_* and predicted = PHI_*
+    2) When binary is false:
+    True positive when actual = PHI_X and predicted = PHI_X''' 
+    true_positive = 0.0
+    false_positive = 0.0
+    empty_tag = '<PAD>'
+    outside_tag = 'OUTSIDE'
+
+    for sent in range(len(correct_tags)):
+        correct_tag_list = reader.decode_tags(correct_tags[sent]).split(' ')
+        predicted_tag_list = reader.decode_tags(predicted_tags[sent]).split(' ')
+        for tag in range(len(correct_tag_list)):
+            predicted = predicted_tag_list[tag]
+            actual = correct_tag_list[tag]
+            if actual == outside_tag and predicted !=outside_tag:
+                false_positive+=1.0
+            if binary:
+                if actual != outside_tag and actual != empty_tag and predicted ==actual:
+                    true_positive+=1.0
+            else: 
+                if actual != outside_tag and actual != empty_tag and predicted!= empty_tag and predicted != outside_tag:
+                    true_positive+=1.0
+    return true_positive/(true_positive+false_positive+1e-9)
+
+def recall(correct_tags,predicted_tags,binary=False):
+    '''Takes in a list of predictions and computes recall by defining:
+    False positive when actual = OUTSIDE and predicted a PHI_*
+    False Negative when actual = PHI_* and predicted = OUTSIDE
+    True positive when actual = PHI_X and predicted = PHI_X''' 
+    true_positive = 0.0
+    false_negative = 0.0
+    false_positive = 0.0
+    empty_tag = '<PAD>'
+    outside_tag = 'OUTSIDE'
+    #reader = data_wrapper.DataReader()
+
+    for sent in range(len(correct_tags)):
+        correct_tag_list = reader.decode_tags(correct_tags[sent]).split(' ')
+        predicted_tag_list = reader.decode_tags(predicted_tags[sent]).split(' ')
+        for tag in range(len(predicted_tag_list)):
+            predicted = predicted_tag_list[tag]
+            actual = correct_tag_list[tag]
+            if actual == outside_tag and predicted !=outside_tag:
+                false_positive+=1.0
+            elif actual != outside_tag and actual!= empty_tag and (predicted==empty_tag or predicted== outside_tag):
+                false_negative+=1.0
+            if binary:
+                if actual != outside_tag and actual != empty_tag and predicted!= empty_tag and predicted != outside_tag:
+                    true_positive+=1.0
+            else: 
+                if actual != outside_tag and actual != empty_tag and predicted ==actual:
+                    true_positive+=1.0
+    return true_positive/(true_positive+false_negative+1e-9)
 def f1(p,r):
     return (2.0*p*r)/(p+r)
-
-
 with graph.as_default():
 
     # read batch and look up embeddings
@@ -66,13 +107,12 @@ with tf.Session(graph=graph) as session:
         if step_num % 100 == 0:
             x, y, y_ = session.run([tokens, tags, preds])
             accuracy = 1.0 * ((y == y_) & (y != 0)).sum() / (y != 0).sum()
-            recall_data= recall(y_,y)
-
-
-
+            precision_data = precision(y,y_)
+            recall_data = recall(y,y_)
+      
             # print some info about the batch
             print 'Loss:    ', batch_loss
-            print 'Precision:  ', accuracy
+            print 'Precision:  ', precision_data
             if recall_data!=None:
                 print 'Recall: ',recall_data
                 print 'f1:   ', f1(recall_data,accuracy)
