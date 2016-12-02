@@ -35,18 +35,21 @@ class DataReader(object):
         return self.embeddings[np.array(encoded_tokens)]
 
     def get_train_batch(self, batch_size):
-        tfrecords_filename = '../preprocessing/tfrecords/train.tfrecords'
-        return self.get_batch(batch_size, tfrecords_filename, True)
+        fname = '../preprocessing/tfrecords/train.tfrecords'
+        return self.get_batch(batch_size, fname, 'train')
 
     def get_test_batch(self, batch_size):
-        tfrecords_filename = '../preprocessing/tfrecords/test.tfrecords'
-        return self.get_batch(batch_size, tfrecords_filename, False)
+        fname = '../preprocessing/tfrecords/test.tfrecords'
+        return self.get_batch(batch_size, fname, 'test')
 
-    def get_batch(self, batch_size, fname, shuffle):
-        queue = tf.train.string_input_producer([fname], shuffle=shuffle)
+    def get_batch(self, batch_size, fname, mode):
+        shuffle = mode == 'train'
+        num_epochs = None if mode == 'train' else 1
+        allow_smaller_final_batch = mode == 'test'
+
+        queue = tf.train.string_input_producer([fname], num_epochs, shuffle)
         reader = tf.TFRecordReader()
         _, serialized_example = reader.read(queue)
-        print _ , serialized_example.get_shape()
 
         context_feats = {"length": tf.FixedLenFeature([], dtype=tf.int64)}
         fixed_len_seq = tf.FixedLenSequenceFeature([], dtype=tf.int64)
@@ -59,7 +62,9 @@ class DataReader(object):
         )
         tokens, tags, length = tf.train.batch(
             tensors=[seq['tokens'], seq['tags'], context['length']],
+            allow_smaller_final_batch=allow_smaller_final_batch,
             batch_size=batch_size,
-            dynamic_pad=True
+            dynamic_pad=True,
+            capacity = 1000
         )
         return tokens, tags, length
