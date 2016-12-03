@@ -26,7 +26,7 @@ def get_spans(fname):
         return line_to_spans
 
 
-def tagged_sequences(dir_name):
+def tagged_sequences(dir_name, limit):
     text_dir = os.path.join(dir_name, 'txt')
     tags_dir = os.path.join(dir_name, 'tags')
     text_files, tag_files = os.listdir(text_dir), os.listdir(tags_dir)
@@ -56,6 +56,9 @@ def tagged_sequences(dir_name):
                     tokens = process(tokens)
                     all_tokens.append(tokens)
                     all_tags.append(tags)
+
+        if i == limit:
+            break
 
     return all_tokens, all_tags
 
@@ -103,7 +106,8 @@ def encode(sequences, index):
     return encoded_sequences
 
 
-def create_embedding_matrix(W_idx, W, index):
+def create_embedding_matrix(fname, index):
+    W_idx, W = load_embeddings(fname)
     emb_words = set(W_idx)
     new_words, new_embeddings = [], []
     for word in index:
@@ -116,6 +120,9 @@ def create_embedding_matrix(W_idx, W, index):
 
     W_idx = np.array([index[i] if i in index else np.inf for i in W_idx])
     W = W[np.argsort(W_idx)][:len(index), :]
+    W = W.astype(np.float16)
+    dim = fname.split('.')[-2]
+    np.savetxt('embeddings/embeddings_{}.txt'.format(dim), W, fmt='%.5f')
     return W.astype(np.float16)
 
 
@@ -145,8 +152,8 @@ def create_index(vocab):
 
 def create_records():
     W_idx, W = load_embeddings('embeddings/glove.6B.50d.txt')
-    train_sequences, train_tags = tagged_sequences('../data/train')
-    test_sequences, test_tags = tagged_sequences('../data/test')
+    train_sequences, train_tags = tagged_sequences('../data/train', limit=None)
+    test_sequences, test_tags = tagged_sequences('../data/test', limit=None)
 
     tag_vocab = set([tag for seq in train_tags for tag in seq])
     token_vocab = get_vocab(train_sequences, test_sequences, W_idx)
@@ -157,8 +164,10 @@ def create_records():
     test_sequences = encode(test_sequences, word_index)
     test_tags = encode(test_tags, tag_index)
 
-    W = create_embedding_matrix(W_idx, W, word_index)
-    np.savetxt('embeddings/embeddings.txt', W, fmt='%.6f')
+    for file in os.listdir('embeddings/'):
+        if file.startswith('glove.'):
+            create_embedding_matrix('embeddings/' + file, word_index)
+
     pickle.dump(word_index, open('indexes/word_index.pkl', 'w'))
     pickle.dump(tag_index, open('indexes/tag_index.pkl', 'w'))
     to_tfrecords(train_sequences, train_tags, 'tfrecords/train.tfrecords')

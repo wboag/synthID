@@ -5,10 +5,17 @@ import cPickle as pickle
 
 class DataReader(object):
 
-    def __init__(self):
-        embedding_filename = '../preprocessing/embeddings/embeddings.txt'
+    def __init__(self, embedding_dimension=None):
         word_index_filename = '../preprocessing/indexes/word_index.pkl'
         tag_index_filename = '../preprocessing/indexes/tag_index.pkl'
+
+        if embedding_dimension is None:
+            embedding_filename = '../preprocessing/embeddings/embeddings.txt'
+        else:
+            embedding_fmt = '../preprocessing/embeddings/embeddings_{}d.txt'
+            embedding_filename = embedding_fmt.format(embedding_dimension)
+            assert embedding_dimension in {50, 100, 200, 300}, \
+                'valid embedding dimensions are 50, 100, 200, or 300'
 
         self.embeddings = np.loadtxt(embedding_filename, dtype=np.float32)
         self.word_index = pickle.load(open(word_index_filename, 'r'))

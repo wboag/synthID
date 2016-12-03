@@ -5,11 +5,12 @@ import metrics
 batch_size = 64
 hidden_units = 32
 learning_rate = .005
-training_steps = 10**2
+training_steps = 10**3
+embedding_dim = 100  # 50, 100, 200, or 300
 
 graph = tf.Graph()
 session = tf.Session(graph=graph)
-reader = data_wrapper.DataReader()
+reader = data_wrapper.DataReader(embedding_dimension=embedding_dim)
 output_units = len(reader.tag_index)
 
 
