@@ -1,4 +1,4 @@
-def precision(reader, correct_tags,predicted_tags,binary=False):
+def precision(reader, correct_tags,predicted_tags,binary=False, counts=False):
     '''Takes in a list of predictions, true tags and computes precision by defining:
     False positive when actual = OUTSIDE and predicted a PHI
     False Negative when actual = PHI and predicted = OUTSIDE
@@ -26,10 +26,12 @@ def precision(reader, correct_tags,predicted_tags,binary=False):
                 if actual != outside_tag and actual != empty_tag and predicted!= empty_tag and predicted != outside_tag:
                     true_positive+=1.0
     total = (true_positive+false_positive)
+    if counts:
+        return true_positive, false_positive
     return true_positive/total if total != 0 else float('nan')
 
 
-def recall(reader, correct_tags,predicted_tags,binary=False):
+def recall(reader, correct_tags,predicted_tags,binary=False, counts=False):
     '''Takes in a list of predictions and computes recall by defining:
     False positive when actual = OUTSIDE and predicted a PHI_*
     False Negative when actual = PHI_* and predicted = OUTSIDE
@@ -58,6 +60,8 @@ def recall(reader, correct_tags,predicted_tags,binary=False):
                 if actual != outside_tag and actual != empty_tag and predicted ==actual:
                     true_positive+=1.0
     total = (true_positive+false_negative)
+    if counts:
+        return true_positive, false_negative
     return true_positive/total if total != 0 else float('nan')
 
 

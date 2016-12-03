@@ -65,6 +65,6 @@ class DataReader(object):
             allow_smaller_final_batch=allow_smaller_final_batch,
             batch_size=batch_size,
             dynamic_pad=True,
-            capacity = 1000
+            capacity=1000
         )
         return tokens, tags, length

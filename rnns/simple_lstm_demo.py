@@ -5,7 +5,7 @@ import metrics
 batch_size = 64
 hidden_units = 32
 learning_rate = .005
-training_steps = 3*10**2
+training_steps = 10**2
 
 graph = tf.Graph()
 session = tf.Session(graph=graph)
@@ -16,7 +16,11 @@ output_units = len(reader.tag_index)
 def get_batch(batch_size, train=False):
     load_batch = reader.get_train_batch if train else reader.get_test_batch
     tokens, tags, lengths = load_batch(batch_size)
-    embeddings = tf.Variable(reader.embeddings)
+    embeddings = tf.get_variable(
+        name='embedding_matrix',
+        initializer=tf.constant_initializer(reader.embeddings),
+        shape=reader.embeddings.shape
+    )
     inputs = tf.nn.embedding_lookup(embeddings, tokens)
     return tokens, tags, lengths, inputs
 
@@ -24,8 +28,16 @@ def get_batch(batch_size, train=False):
 def predict(inputs, lengths):
     cell = tf.nn.rnn_cell.BasicLSTMCell(hidden_units)
     a, _ = tf.nn.dynamic_rnn(cell, inputs, lengths, dtype=tf.float32)
-    W = tf.Variable(tf.random_normal([hidden_units, output_units]))
-    b = tf.Variable(tf.zeros([output_units]))
+    W = tf.get_variable(
+        name='fc_weights',
+        initializer=tf.random_normal_initializer(),
+        shape=[hidden_units, output_units]
+    )
+    b = tf.get_variable(
+        name='fc_biases',
+        initializer=tf.constant_initializer(),
+        shape=[output_units]
+    )
     z = tf.matmul(tf.reshape(a, [-1, hidden_units]), W) + b
     z = tf.reshape(z, [-1, tf.shape(a)[1], output_units])
     preds = tf.argmax(z, 2)
@@ -38,51 +50,49 @@ def cross_entropy(logits, lengths, tags):
     return loss
 
 
-def evaluate_test_set(session, test_tags, test_preds):
+def evaluate_test_set(session, tags, preds, batch_limit=None):
     batch_num = 0
+    num_sequences = 0
+    p_tp_total, p_fp_total, r_tp_total, r_fn_total = 0, 0, 0, 0
     while True:
         try:
+            y, y_ = session.run([tags, preds])
+            p_tp, p_fp = metrics.precision(reader, y, y_, counts=True)
+            r_tp, r_fn = metrics.recall(reader, y, y_, counts=True)
+            p_tp_total += p_tp
+            p_fp_total += p_fp
+            r_tp_total += r_tp
+            r_fn_total += r_fn
             batch_num += 1
-            y, y_ = session.run([test_tags, test_preds])
-            precision, recall, f1 = metrics.precision_recall_f1(reader, y, y_)
-            print 'precision: ', precision
-            print 'recall:    ', recall
-            print 'f1:        ', f1
-            print
+            num_sequences += len(y)
+            if batch_num == batch_limit:
+                break
         except tf.errors.OutOfRangeError:
-            print 'queue is empty'
+            print 'test queue is empty'
             break
+    if p_tp_total:
+        precision = p_tp_total / (p_tp_total + p_fp_total)
+        recall = r_tp_total / (r_tp_total + r_fn_total)
+        f1 = metrics.f1(precision, recall)
+
+        print 'Evaluated {} sequences from test set'.format(num_sequences)
+        print 'Precision:  ', precision
+        print 'Recall:     ', recall
+        print 'f1:         ', f1
 
 
 with graph.as_default():
 
-    tokens, tags, lengths = reader.get_train_batch(batch_size)
-    embeddings = tf.Variable(reader.embeddings)
-    inputs = tf.nn.embedding_lookup(embeddings, tokens)
+    with tf.variable_scope('rnn'):
+        tokens, tags, lengths, inputs = get_batch(batch_size, train=True)
+        logits, preds = predict(inputs, lengths)
+        loss = cross_entropy(logits, lengths, tags)
+        step = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 
-    cell = tf.nn.rnn_cell.BasicLSTMCell(hidden_units)
-    a, _ = tf.nn.dynamic_rnn(cell, inputs, lengths, dtype=tf.float32)
-    W = tf.Variable(tf.random_normal([hidden_units, output_units]))
-    b = tf.Variable(tf.zeros([output_units]))
-    z = tf.matmul(tf.reshape(a, [-1, hidden_units]), W) + b
-    z = tf.reshape(z, [-1, tf.shape(a)[1], output_units])
-
-    preds = tf.argmax(z, 2)
-    x_ent = tf.nn.sparse_softmax_cross_entropy_with_logits(z, tags)
-    loss = tf.reduce_sum(x_ent) / tf.cast(tf.reduce_sum(lengths), tf.float32)
-    step = tf.train.AdamOptimizer(learning_rate).minimize(loss)
-
-    tf.get_variable_scope().reuse_variables()
-
-    ## in the process of refactoring so we dont have to duplicate all of this for testing
-    test_tokens, test_tags, test_lengths = reader.get_test_batch(10000)
-    test_inputs = tf.nn.embedding_lookup(embeddings, test_tokens)
-
-    # simple LSTM with softmax output
-    a_test, _ = tf.nn.dynamic_rnn(cell, test_inputs, test_lengths, dtype=tf.float32)
-    z_test = tf.matmul(tf.reshape(a_test, [-1, hidden_units]), W) + b
-    z_test = tf.reshape(z_test, [-1, tf.shape(a_test)[1], output_units])
-    test_preds = tf.argmax(z_test, 2)
+    with tf.variable_scope('rnn', reuse=True):
+        test_tokens, test_tags, test_lengths, test_inputs = get_batch(10000)
+        test_logits, test_preds = predict(test_inputs, test_lengths)
+        test_loss = cross_entropy(test_logits, test_lengths, test_tags)
 
     init = tf.group(tf.global_variables_initializer(),
                     tf.local_variables_initializer())
@@ -113,6 +123,6 @@ with session.as_default():
             print 'Pred:      ', reader.decode_tags(y_[0][(y != 0)[0]][:15])
             print
 
-    evaluate_test_set(session, test_tags, test_preds)
+    evaluate_test_set(session, test_tags, test_preds, batch_limit=3)
     train_coord.request_stop()
     train_coord.join(threads)
