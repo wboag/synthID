@@ -96,7 +96,7 @@ with graph.as_default():
 
     with tf.variable_scope('rnn', reuse=True):
         test_tokens, test_tags, test_lengths, test_inputs, \
-            test_fnames, test_lines = get_batch(100, train=False)
+            test_fnames, test_lines = get_batch(10000, train=False)
         test_logits, test_preds = predict(test_inputs, test_lengths)
         test_loss = cross_entropy(test_logits, test_lengths, test_tags)
 
