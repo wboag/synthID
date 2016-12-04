@@ -28,9 +28,7 @@ def get_batch(batch_size, train=False):
 
 def predict(inputs, lengths):
     cell = tf.nn.rnn_cell.BasicLSTMCell(hidden_units)
-    (a_fw, a_bw), _ = tf.nn.bidirectional_dynamic_rnn(
-        cell, cell, inputs, lengths, dtype=tf.float32)
-    a = a_fw * a_bw
+    a, _ = tf.nn.dynamic_rnn(cell, inputs, lengths, dtype=tf.float32)
     W = tf.get_variable(
         name='fc_weights',
         initializer=tf.random_normal_initializer(),
