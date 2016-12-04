@@ -5,17 +5,19 @@ import cPickle as pickle
 
 class DataReader(object):
 
-    def __init__(self, embedding_dimension=None):
+    def __init__(self, embedding_dim=None, num_threads=1):
         word_index_filename = '../preprocessing/indexes/word_index.pkl'
         tag_index_filename = '../preprocessing/indexes/tag_index.pkl'
 
-        if embedding_dimension is None:
+        if embedding_dim is None:
             embedding_filename = '../preprocessing/embeddings/embeddings.txt'
         else:
             embedding_fmt = '../preprocessing/embeddings/embeddings_{}d.txt'
-            embedding_filename = embedding_fmt.format(embedding_dimension)
-            assert embedding_dimension in {50, 100, 200, 300}, \
+            embedding_filename = embedding_fmt.format(embedding_dim)
+            assert embedding_dim in {50, 100, 200, 300}, \
                 'valid embedding dimensions are 50, 100, 200, or 300'
+
+        self.num_threads = num_threads
 
         self.embeddings = np.loadtxt(embedding_filename, dtype=np.float32)
         self.word_index = pickle.load(open(word_index_filename, 'r'))
@@ -58,7 +60,11 @@ class DataReader(object):
         reader = tf.TFRecordReader()
         _, serialized_example = reader.read(queue)
 
-        context_feats = {"length": tf.FixedLenFeature([], dtype=tf.int64)}
+        context_feats = {
+            "length": tf.FixedLenFeature([], dtype=tf.int64),
+            "filename": tf.FixedLenFeature([], dtype=tf.string),
+            "line_num": tf.FixedLenFeature([], dtype=tf.int64)
+        }
         fixed_len_seq = tf.FixedLenSequenceFeature([], dtype=tf.int64)
         seq_feats = {"tokens": fixed_len_seq, "tags": fixed_len_seq}
 
@@ -67,11 +73,19 @@ class DataReader(object):
             context_features=context_feats,
             sequence_features=seq_feats
         )
-        tokens, tags, length = tf.train.batch(
-            tensors=[seq['tokens'], seq['tags'], context['length']],
+        tensors = [
+            seq['tokens'],
+            seq['tags'],
+            context['length'],
+            context['filename'],
+            context['line_num']
+        ]
+        tokens, tags, length, filenames, line_nums = tf.train.batch(
+            tensors=tensors,
+            num_threads=self.num_threads,
             allow_smaller_final_batch=allow_smaller_final_batch,
             batch_size=batch_size,
             dynamic_pad=True,
-            capacity=1000
+            capacity=20000
         )
-        return tokens, tags, length
+        return tokens, tags, length, filenames, line_nums

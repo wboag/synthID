@@ -31,7 +31,7 @@ def tagged_sequences(dir_name, limit):
     tags_dir = os.path.join(dir_name, 'tags')
     text_files, tag_files = os.listdir(text_dir), os.listdir(tags_dir)
 
-    all_tokens, all_tags = [], []
+    all_tokens, all_tags, fnames, line_nums = [], [], [], []
     for i, (text_file, tag_file) in enumerate(zip(text_files, tag_files)):
         assert os.path.splitext(text_file)[0] == os.path.splitext(tag_file)[0]
 
@@ -56,11 +56,13 @@ def tagged_sequences(dir_name, limit):
                     tokens = process(tokens)
                     all_tokens.append(tokens)
                     all_tags.append(tags)
+                    fnames.append(full_text_fname)
+                    line_nums.append(line_num)
 
         if i == limit:
             break
 
-    return all_tokens, all_tags
+    return all_tokens, all_tags, fnames, line_nums
 
 
 def load_embeddings(embedding_path):
@@ -126,10 +128,12 @@ def create_embedding_matrix(fname, index):
     return W.astype(np.float16)
 
 
-def make_example(tokens, tags):
+def make_example(tokens, tags, fname, line_num):
     ex = tf.train.SequenceExample()
     sequence_length = len(tokens)
     ex.context.feature["length"].int64_list.value.append(sequence_length)
+    ex.context.feature["filename"].bytes_list.value.append(fname)
+    ex.context.feature["line_num"].int64_list.value.append(line_num)
     fl_tokens = ex.feature_lists.feature_list["tokens"]
     fl_labels = ex.feature_lists.feature_list["tags"]
     for token, tag in zip(tokens, tags):
@@ -138,10 +142,11 @@ def make_example(tokens, tags):
     return ex
 
 
-def to_tfrecords(sequences, tag_sequences, output_path):
+def to_tfrecords(sequences, tag_sequences, fnames, line_nums, output_path):
     with tf.python_io.TFRecordWriter(output_path) as writer:
-        for tokens, tags in zip(sequences, tag_sequences):
-            example = make_example(tokens, tags)
+        examples = zip(sequences, tag_sequences, fnames, line_nums)
+        for tokens, tags, fname, line_num in examples:
+            example = make_example(tokens, tags, fname, line_num)
             writer.write(example.SerializeToString())
 
 
@@ -152,8 +157,10 @@ def create_index(vocab):
 
 def create_records():
     W_idx, W = load_embeddings('embeddings/glove.6B.50d.txt')
-    train_sequences, train_tags = tagged_sequences('../data/train', limit=None)
-    test_sequences, test_tags = tagged_sequences('../data/test', limit=None)
+    train_sequences, train_tags, train_fnames, train_line_nums = \
+        tagged_sequences('../data/train', limit=None)
+    test_sequences, test_tags, test_fnames, test_line_nums = \
+        tagged_sequences('../data/test', limit=None)
 
     tag_vocab = set([tag for seq in train_tags for tag in seq])
     token_vocab = get_vocab(train_sequences, test_sequences, W_idx)
@@ -170,8 +177,10 @@ def create_records():
 
     pickle.dump(word_index, open('indexes/word_index.pkl', 'w'))
     pickle.dump(tag_index, open('indexes/tag_index.pkl', 'w'))
-    to_tfrecords(train_sequences, train_tags, 'tfrecords/train.tfrecords')
-    to_tfrecords(test_sequences, test_tags, 'tfrecords/test.tfrecords')
+    to_tfrecords(train_sequences, train_tags, train_fnames,
+                 train_line_nums, 'tfrecords/train.tfrecords')
+    to_tfrecords(test_sequences, test_tags, test_fnames,
+                 test_line_nums, 'tfrecords/test.tfrecords')
 
 
 if __name__ == '__main__':
