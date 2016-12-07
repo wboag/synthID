@@ -5,10 +5,19 @@ import cPickle as pickle
 
 class DataReader(object):
 
-    def __init__(self):
-        embedding_filename = '../preprocessing/embeddings/embeddings.txt'
+    def __init__(self, embedding_dim=None, num_threads=1):
         word_index_filename = '../preprocessing/indexes/word_index.pkl'
         tag_index_filename = '../preprocessing/indexes/tag_index.pkl'
+
+        if embedding_dim is None:
+            embedding_filename = '../preprocessing/embeddings/embeddings.txt'
+        else:
+            embedding_fmt = '../preprocessing/embeddings/embeddings_{}d.txt'
+            embedding_filename = embedding_fmt.format(embedding_dim)
+            assert embedding_dim in {50, 100, 200, 300}, \
+                'valid embedding dimensions are 50, 100, 200, or 300'
+
+        self.num_threads = num_threads
 
         self.embeddings = np.loadtxt(embedding_filename, dtype=np.float32)
         self.word_index = pickle.load(open(word_index_filename, 'r'))
@@ -35,20 +44,27 @@ class DataReader(object):
         return self.embeddings[np.array(encoded_tokens)]
 
     def get_train_batch(self, batch_size):
-        tfrecords_filename = '../preprocessing/tfrecords/train.tfrecords'
-        return self.get_batch(batch_size, tfrecords_filename, True)
+        fname = '../preprocessing/tfrecords/train.tfrecords'
+        return self.get_batch(batch_size, fname, 'train')
 
     def get_test_batch(self, batch_size):
-        tfrecords_filename = '../preprocessing/tfrecords/test.tfrecords'
-        return self.get_batch(batch_size, tfrecords_filename, False)
+        fname = '../preprocessing/tfrecords/test.tfrecords'
+        return self.get_batch(batch_size, fname, 'test')
 
-    def get_batch(self, batch_size, fname, shuffle):
-        queue = tf.train.string_input_producer([fname], shuffle=shuffle)
+    def get_batch(self, batch_size, fname, mode):
+        shuffle = mode == 'train'
+        num_epochs = None if mode == 'train' else 1
+        allow_smaller_final_batch = mode == 'test'
+
+        queue = tf.train.string_input_producer([fname], num_epochs, shuffle)
         reader = tf.TFRecordReader()
         _, serialized_example = reader.read(queue)
-        print _ , serialized_example.get_shape()
 
-        context_feats = {"length": tf.FixedLenFeature([], dtype=tf.int64)}
+        context_feats = {
+            "length": tf.FixedLenFeature([], dtype=tf.int64),
+            "filename": tf.FixedLenFeature([], dtype=tf.string),
+            "line_num": tf.FixedLenFeature([], dtype=tf.int64)
+        }
         fixed_len_seq = tf.FixedLenSequenceFeature([], dtype=tf.int64)
         seq_feats = {"tokens": fixed_len_seq, "tags": fixed_len_seq}
 
@@ -57,9 +73,19 @@ class DataReader(object):
             context_features=context_feats,
             sequence_features=seq_feats
         )
-        tokens, tags, length = tf.train.batch(
-            tensors=[seq['tokens'], seq['tags'], context['length']],
+        tensors = [
+            seq['tokens'],
+            seq['tags'],
+            context['length'],
+            context['filename'],
+            context['line_num']
+        ]
+        tokens, tags, length, filenames, line_nums = tf.train.batch(
+            tensors=tensors,
+            num_threads=self.num_threads,
+            allow_smaller_final_batch=allow_smaller_final_batch,
             batch_size=batch_size,
-            dynamic_pad=True
+            dynamic_pad=True,
+            capacity=20000
         )
-        return tokens, tags, length
+        return tokens, tags, length, filenames, line_nums

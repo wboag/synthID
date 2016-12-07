@@ -26,7 +26,7 @@ def get_spans(fname):
         return line_to_spans
 
 
-def tagged_sequences(dir_name):
+def tagged_sequences(dir_name, limit):
     text_dir = os.path.join(dir_name, 'txt')
     tags_dir = os.path.join(dir_name, 'tags')
     text_files, tag_files = os.listdir(text_dir), os.listdir(tags_dir)
@@ -45,10 +45,12 @@ def tagged_sequences(dir_name):
 
     intersection = list(intersection)[:10]
 
+    all_tokens, all_tags, fnames, line_nums = [], [], [], []
     all_tokens, all_tags = [], []
     for i,key in enumerate(intersection):
         text_file = text_map[key]
         tag_file  =  tag_map[key]
+
         assert os.path.splitext(text_file)[0] == os.path.splitext(tag_file)[0]
 
         full_text_fname = os.path.join(text_dir, text_file)
@@ -72,8 +74,13 @@ def tagged_sequences(dir_name):
                     tokens = process(tokens)
                     all_tokens.append(tokens)
                     all_tags.append(tags)
+                    fnames.append(full_text_fname)
+                    line_nums.append(line_num)
 
-    return all_tokens, all_tags
+        if i == limit:
+            break
+
+    return all_tokens, all_tags, fnames, line_nums
 
 
 def load_embeddings(embedding_path):
@@ -119,7 +126,8 @@ def encode(sequences, index):
     return encoded_sequences
 
 
-def create_embedding_matrix(W_idx, W, index):
+def create_embedding_matrix(fname, index):
+    W_idx, W = load_embeddings(fname)
     emb_words = set(W_idx)
     new_words, new_embeddings = [], []
     for word in index:
@@ -132,13 +140,18 @@ def create_embedding_matrix(W_idx, W, index):
 
     W_idx = np.array([index[i] if i in index else np.inf for i in W_idx])
     W = W[np.argsort(W_idx)][:len(index), :]
+    W = W.astype(np.float16)
+    dim = fname.split('.')[-2]
+    np.savetxt('embeddings/embeddings_{}.txt'.format(dim), W, fmt='%.5f')
     return W.astype(np.float16)
 
 
-def make_example(tokens, tags):
+def make_example(tokens, tags, fname, line_num):
     ex = tf.train.SequenceExample()
     sequence_length = len(tokens)
     ex.context.feature["length"].int64_list.value.append(sequence_length)
+    ex.context.feature["filename"].bytes_list.value.append(fname)
+    ex.context.feature["line_num"].int64_list.value.append(line_num)
     fl_tokens = ex.feature_lists.feature_list["tokens"]
     fl_labels = ex.feature_lists.feature_list["tags"]
     for token, tag in zip(tokens, tags):
@@ -147,10 +160,11 @@ def make_example(tokens, tags):
     return ex
 
 
-def to_tfrecords(sequences, tag_sequences, output_path):
+def to_tfrecords(sequences, tag_sequences, fnames, line_nums, output_path):
     with tf.python_io.TFRecordWriter(output_path) as writer:
-        for tokens, tags in zip(sequences, tag_sequences):
-            example = make_example(tokens, tags)
+        examples = zip(sequences, tag_sequences, fnames, line_nums)
+        for tokens, tags, fname, line_num in examples:
+            example = make_example(tokens, tags, fname, line_num)
             writer.write(example.SerializeToString())
 
 
@@ -161,8 +175,10 @@ def create_index(vocab):
 
 def create_records():
     W_idx, W = load_embeddings('embeddings/glove.6B.50d.txt')
-    train_sequences, train_tags = tagged_sequences('../data/train')
-    test_sequences, test_tags = tagged_sequences('../data/test')
+    train_sequences, train_tags, train_fnames, train_line_nums = \
+        tagged_sequences('../data/train', limit=None)
+    test_sequences, test_tags, test_fnames, test_line_nums = \
+        tagged_sequences('../data/test', limit=None)
 
     tag_vocab = set([tag for seq in train_tags for tag in seq])
     token_vocab = get_vocab(train_sequences, test_sequences, W_idx)
@@ -173,12 +189,16 @@ def create_records():
     test_sequences = encode(test_sequences, word_index)
     test_tags = encode(test_tags, tag_index)
 
-    W = create_embedding_matrix(W_idx, W, word_index)
-    np.savetxt('embeddings/embeddings.txt', W, fmt='%.6f')
+    for file in os.listdir('embeddings/'):
+        if file.startswith('glove.'):
+            create_embedding_matrix('embeddings/' + file, word_index)
+
     pickle.dump(word_index, open('indexes/word_index.pkl', 'w'))
     pickle.dump(tag_index, open('indexes/tag_index.pkl', 'w'))
-    to_tfrecords(train_sequences, train_tags, 'tfrecords/train.tfrecords')
-    to_tfrecords(test_sequences, test_tags, 'tfrecords/test.tfrecords')
+    to_tfrecords(train_sequences, train_tags, train_fnames,
+                 train_line_nums, 'tfrecords/train.tfrecords')
+    to_tfrecords(test_sequences, test_tags, test_fnames,
+                 test_line_nums, 'tfrecords/test.tfrecords')
 
 
 if __name__ == '__main__':
