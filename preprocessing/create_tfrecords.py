@@ -31,8 +31,24 @@ def tagged_sequences(dir_name):
     tags_dir = os.path.join(dir_name, 'tags')
     text_files, tag_files = os.listdir(text_dir), os.listdir(tags_dir)
 
+    text_map = {}
+    for tfile in text_files:
+        key = os.path.splitext(tfile)[0]
+        text_map[key] = tfile
+
+    tag_map = {}
+    for tfile in tag_files:
+        key = os.path.splitext(tfile)[0]
+        tag_map[key] = tfile
+
+    intersection = set(text_map.keys()) & set(tag_map.keys())
+
+    intersection = list(intersection)[:10]
+
     all_tokens, all_tags = [], []
-    for i, (text_file, tag_file) in enumerate(zip(text_files, tag_files)):
+    for i,key in enumerate(intersection):
+        text_file = text_map[key]
+        tag_file  =  tag_map[key]
         assert os.path.splitext(text_file)[0] == os.path.splitext(tag_file)[0]
 
         full_text_fname = os.path.join(text_dir, text_file)
