@@ -21,10 +21,14 @@ def main():
     # connect to mimic database
     con = psycopg2.connect(dbname='mimic')
 
+    #base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = '/scratch/wboag/synthid'
+    data_dir = os.path.join(base_dir, 'data', 'final', 'all')
+
     # query for text
-    query = 'select subject_id,text from mimiciii.noteevents where subject_id=88452;'
-    #query = 'select subject_id,text from mimiciii.noteevents where subject_id=17190;'
-    #query = 'select subject_id,text from mimiciii.noteevents;'
+    #query = 'select subject_id,text from mimiciii.noteevents where subject_id=88472;'
+    #query = 'select subject_id,text from mimiciii.noteevents where subject_id=1056;'
+    query = 'select subject_id,text from mimiciii.noteevents;'
     val = pd.read_sql_query(query, con)
 
     iteration = 0
@@ -40,11 +44,16 @@ def main():
         '''
 
         iteration += 1
-        #if iteration >= 300: break
+        if iteration >= 8000: break
 
         # unique identifier for this note
         note_number = subj_counts[subject_id]
         subj_counts[subject_id] += 1
+
+
+        name = 'record-%d-%d' % (subject_id,note_number)
+        if os.path.exists('%s/txt/%s.txt' % (data_dir,name)):
+            continue
 
         print subject_id, note_number
 
@@ -52,11 +61,19 @@ def main():
         #print tags
         #print 
 
+        '''
+        print '\n'
+        print text
+        print '\n'
+        '''
+
         # re-id'd text
         reid_lines = []
 
         # idenitifying information
         annotations = []
+
+        info = []
 
         # go through line-by-line (easier annotations)
         for lineno,line in enumerate(text.split('\n')):
@@ -75,8 +92,20 @@ def main():
 
             S = line
 
+            # replace tag with a single token
+            tags = re.findall('(\[\*\*[^*]*\*\*\])', S)
+            for tag in tags:
+                normed_tag = tag.replace(' ','_')
+                S.replace(tag, normed_tag)
+
+            # tokenization (should really use tokenizer
+            toks = S.split()
+
             # repeat this process until all tags have been substituted on this line
-            while '[**' in S:
+            for ind,token in enumerate(toks):
+
+                if not token.startswith('[**'):
+                    continue
 
                 '''
                 print 
@@ -99,12 +128,27 @@ def main():
                     S = '%s%s' % (prefix,rest)
                     continue
 
+                '''
+                print 
+                print tag
+                print S[max(0,start-25):end+25]
+                print 
+                exit()
+                '''
+
                 # entity replacement
                 #print 'iter: ', iteration
-                new_entity,simple_label = generate_new_entity(label)
-                #print 'new label: ', simple_label
-                #print new_entity
-                #print
+                new_entity,simple_label = generate_new_entity(label, prefix, rest)
+                if simple_label != 'DATE':
+                    info.append( (line,label,simple_label,new_entity) )
+                    '''
+                    print line
+                    print 'old label: ', label
+                    print 'new label: ', simple_label
+                    print new_entity
+                    print
+                    '''
+                #exit()
 
                 #sys.stdin.readline()
                 #exit()
@@ -145,6 +189,18 @@ def main():
             #print S
             reid_lines.append(S)
 
+        '''
+        for line,label,simple_label,new_entity in sorted(info,key=lambda t:t[2]):
+            print line
+            print 'old label: ', label
+            print 'new label: ', simple_label
+            print new_entity
+            print
+        print '\n\n'
+        continue
+        exit()
+        '''
+
         #continue
 
         labels = set([ ann[-1] for ann in annotations ])
@@ -155,12 +211,7 @@ def main():
         reid_text = '\n'.join(reid_lines)
         #print reid_text
 
-        name = 'record-%d-%d' % (subject_id,note_number)
-
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
         # ensure directories exist
-        data_dir = os.path.join(base_dir, 'data', 'all')
         if not os.path.exists(data_dir):
             os.mkdir(data_dir)
             os.mkdir(os.path.join(data_dir, 'template'))
@@ -168,17 +219,15 @@ def main():
             os.mkdir(os.path.join(data_dir, 'tags'    ))
 
         # output template text to file
-        with open('%s/data/all/template/%s.txt' % (base_dir,name), 'w') as f:
+        with open('%s/template/%s.txt' % (data_dir,name), 'w') as f:
             print >>f, text
 
         # output re-id text to file
-        #with open('data/txt/%s.txt' % name, 'w') as f:
-        with open('%s/data/all/txt/%s.txt' % (base_dir,name), 'w') as f:
+        with open('%s/txt/%s.txt' % (data_dir,name), 'w') as f:
             print >>f, reid_text
 
         # out annotations to file
-        #with  open('data/tags/%s.tags'%name, 'w') as f:
-        with  open('%s/data/all/tags/%s.tags'%(base_dir,name), 'w') as f:
+        with  open('%s/tags/%s.tags' % (data_dir,name), 'w') as f:
             for lineno,start,end,entity,label in annotations:
                 '''
                 print 
@@ -200,16 +249,21 @@ def main():
 
 
 
-def generate_new_entity(old_label):
+def generate_new_entity(old_label, prefix, rest):
 
     #print 'label: ', old_label
     low_label = old_label.lower()
 
     date = is_date(low_label)
 
+    #print '\t', low_label
+
     # dates
     if date:
         new_entity = date
+        label = 'DATE'
+    elif 'holiday' in low_label:
+        new_entity = generate_holiday(low_label)
         label = 'DATE'
     elif 'hospital' in low_label:
         new_entity = generate_hospital(low_label)
@@ -219,20 +273,23 @@ def generate_new_entity(old_label):
         label = 'LOCATION'
     elif 'name' in low_label:
         new_entity = generate_name(low_label)
-        if 'doctor' in low_label:
-            label = 'DOCTOR_NAME'
-        else:
-            label = 'PATIENT_NAME'
+        label = 'NAME'
+    elif 'dictator info' in low_label:
+        new_entity = generate_name(low_label)
+        label = 'NAME'
+    elif 'contact info' in low_label:
+        new_entity = generate_name(low_label)
+        label = 'NAME'
+    elif 'attending info' in low_label:
+        new_entity = generate_name(low_label)
+        label = 'NAME'
     elif 'telephone' in low_label:
         nums = [ random.randint(0,9) for _ in range(10) ]
         new_entity = '%d%d%d-%d%d%d-%d%d%d%d' % tuple(nums)
-        label = 'TELEPHONE'
+        label = 'CONTACT'
 
     elif 'job number' in low_label:
         new_entity = old_label.split()[-1]
-        label = 'NUMBER'
-    elif ('address' in low_label) or ('po box' in low_label):
-        new_entity = '115 Varnum St'
         label = 'NUMBER'
     elif 'md number' in low_label:
         new_entity = old_label.split()[-1]
@@ -262,45 +319,36 @@ def generate_new_entity(old_label):
         new_entity = '12'
         label = 'NUMBER'
 
-    elif 'dictator info' in low_label:
-        new_entity = 'Darren Sharper'
-        label = 'MISC'
     elif 'url ' in low_label:
-        new_entity = 'bing.com'
-        label = 'MISC'
-    elif 'contact info' in low_label:
-        new_entity = 'Chad'
-        label = 'MISC'
-    elif 'attending info' in low_label:
-        new_entity = 'Pennington'
-        label = 'MISC'
+        new_entity = generate_url(low_label)
+        label = 'CONTACT'
     elif 'university' in low_label:
-        new_entity = 'Stanford University'
-        label = 'MISC'
+        new_entity = generate_college(low_label)
+        label = 'LOCATION'
+    elif ('address' in low_label) or ('po box' in low_label):
+        new_entity = generate_address(low_label)
+        label = 'LOCATION'
     elif 'state' in low_label:
-        new_entity = 'Massachusetts'
-        label = 'MISC'
-    elif 'holiday' in low_label:
-        new_entity = 'Christmas'
-        label = 'MISC'
+        new_entity = generate_state(low_label)
+        label = 'LOCATION'
     elif 'country' in low_label:
-        new_entity = 'Spain'
-        label = 'MISC'
+        new_entity = generate_country(low_label)
+        label = 'LOCATION'
     elif 'company' in low_label:
         new_entity = generate_company(low_label)
-        label = 'MISC'
+        label = 'LOCATION'
 
     elif 'age over 90' in low_label:
-        new_entity = '90'
+        new_entity = low_label
         label = 'NUMBER'
     elif re.search('^\d+$', low_label):
-        new_entity = '00'
+        new_entity = low_label
         label = 'NUMBER'
     elif re.search('^[\d-]+$', low_label):
-        new_entity = '00'
+        new_entity = low_label
         label = 'NUMBER'
     elif re.search('^[-\d/]+$', low_label):
-        new_entity = '00'
+        new_entity = low_label
         label = 'NUMBER'
     else:
         print 'UNKNOWN: ', label
@@ -356,9 +404,30 @@ def generate_name(label):
 
 
 
+def generate_url(label):
+    r = random.random()
+    name = find(phi.urls, r)
+    return name[0]
+
+
+
+def generate_holiday(label):
+    r = random.random()
+    name = find(phi.holidays, r)
+    return name[0]
+
+
+
 def generate_location(label):
     r = random.random()
     name = find(phi.locations, r)
+    return name[0]
+
+
+
+def generate_college(label):
+    r = random.random()
+    name = find(phi.colleges, r)
     return name[0]
 
 
@@ -370,9 +439,33 @@ def generate_hospital(label):
 
 
 
+def generate_address(label):
+    r = random.random()
+    addr = find(phi.streets, r)[0] # street name
+    if ('apartment address' in label) or ('street address' in label):
+        num = random.randint(1,160)
+        addr = '%d %s' % (num,addr)
+    return addr
+
+
+
 def generate_company(label):
     r = random.random()
     name = find(phi.companies, r)
+    return name[0]
+
+
+
+def generate_country(label):
+    r = random.random()
+    name = find(phi.countries, r)
+    return name[0]
+
+
+
+def generate_state(label):
+    r = random.random()
+    name = find(phi.states, r)
     return name[0]
 
 
@@ -395,6 +488,7 @@ def tokenizer_corrections(toks):
         del toks[-1]
         toks[-1] = toks[-1] + '.'
     return toks
+
 
 
 if __name__ == '__main__':

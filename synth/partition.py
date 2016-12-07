@@ -9,7 +9,7 @@ import random
 def main():
 
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    data_dir = os.path.join(base_dir, 'data')
+    data_dir = os.path.join(base_dir, 'data', 'final')
     all_data = os.path.join(data_dir, 'all' )
 
     txt_files       = glob.glob(os.path.join(all_data,'txt'     ,'*.txt' ))
@@ -73,6 +73,7 @@ def dictionary(lst):
         key = os.path.split(filename)[-1].split('.')[0]
         d[key] = os.path.split(filename)[-1]
     return d
+
 
 
 if __name__ == '__main__':

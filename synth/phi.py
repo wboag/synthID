@@ -10,8 +10,8 @@ def read_names(filename):
     with open(filename, 'r') as f:
         for line in f.readlines():
             toks = line.strip().split()
-            names.append(toks[0])
-            scores.append(float(toks[1]))
+            names.append(' '.join(toks[:-1]))
+            scores.append(float(toks[-1]))
 
     Z = sum(scores)
     pdf = [ s/Z for s in scores ]
@@ -65,4 +65,11 @@ last_names   = read_names(os.path.join(lexica_dir, 'names-surname.txt'))
 hospitals = read_unweighted(os.path.join(lexica_dir, 'hospitals.txt'))
 companies = read_unweighted(os.path.join(lexica_dir, 'companies.txt'))
 locations = read_unweighted(os.path.join(lexica_dir, 'locations.txt'))
+states    = read_unweighted(os.path.join(lexica_dir,    'states.txt'))
+countries = read_unweighted(os.path.join(lexica_dir, 'countries.txt'))
+colleges  = read_unweighted(os.path.join(lexica_dir,  'colleges.txt'))
+holidays  = read_unweighted(os.path.join(lexica_dir,  'holidays.txt'))
+urls      = read_unweighted(os.path.join(lexica_dir,      'urls.txt'))
+streets   = read_names(     os.path.join(lexica_dir,   'streets.txt'))
+
 
