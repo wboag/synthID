@@ -9,6 +9,7 @@
 
 import nltk
 import os
+import re
 
 
 
@@ -79,10 +80,62 @@ def reconstruct_list(flat_list, offsets):
 def read_txt(txt_file):
     # read text
     with open(txt_file, 'r') as f:
-        sents = [ nltk.word_tokenize(line.strip()) for line in f.readlines() ]
-
+        text = f.read()
+        sents = [ nltk.word_tokenize(line.strip()) for line in text.split('\n') ]
     return sents
 
+    # TODO: ACTUALLY WORK TO MAKE COHERENT SENTENCES
+
+    text = re.sub('\n\n+', '\n\n', text)
+
+    segments = text.split('\n\n')
+
+    # Is this segment nonprose?
+    sents = []
+    for segment in segments:
+        print '-'*50
+        #print segment
+        segment_sents = nltk.sent_tokenize(segment)
+        for sent in segment_sents:
+            print '='*30
+            print sent
+            lines = sent.split('\n')
+            buf = []
+            for line in lines:
+                if line.endswith(':'):
+                    sents.append(line)
+                    print '\t>>', line
+                elif re.search('^\d+\.$', line):
+                    sents.append(line)
+                    print '\t##', line
+                else:
+                    if buf and line[0].isupper():
+                        final = ' '.join(buf)
+                        print '\t--', final
+                        sents.append(final)
+                        buf = []
+                    buf.append(line)
+
+            if buf:
+                final = ' '.join(buf)
+                print '\t--', final
+                sents.append(final)
+            print '='*30
+            print 
+        print '-'*50
+        print 
+
+
+    '''
+    print '\n\n\n'
+    print text
+    print '\n\n\n'
+    print segments
+    print '\n\n\n'
+    '''
+    exit()
+
+    return sents
 
 
 
@@ -104,9 +157,16 @@ def read_tags(sents, tags_file):
     tags = [ ['O' for word in sent] for sent in sents ]
     categories = set()
     for lineno,start,end,segment,label in annotations:
-        #print 
-        #print sents[lineno][start:end+1]
-        #print nltk.word_tokenize(segment)
+        '''
+        print 
+        print sents[lineno][start:end+1]
+        print nltk.word_tokenize(segment)
+        '''
+
+        # TEMPORARY HACK
+        if sents[lineno][start:end+1] != nltk.word_tokenize(segment):
+            continue
+
         assert sents[lineno][start:end+1] == nltk.word_tokenize(segment)
         #print 'WARNING: skipping assertions of len(tokens) == len(tags)'
 
@@ -159,6 +219,8 @@ def extract_features(sents):
     #   1. try a padded context thing (TRYING THIS)
     #   2. identify prose sections & run sentence tokenizer on that (TOO HARD)
 
+    copies = 10
+
     # makes it easier to gather previous context
     prev_N = 3
     all_words = ['<PAD>' for _ in range(prev_N)]
@@ -173,6 +235,12 @@ def extract_features(sents):
     all_words += ['<PAD>' for _ in range(prev_N)]
     all_words = [ w.lower() for w in all_words ]
 
+    V = set(all_words)
+    print 'vocab: ', len(V)
+    print '\n\n'
+
+    #print all_words
+    #exit()
 
     # get some features for each word of each sentence
     text_features = []
@@ -187,17 +255,17 @@ def extract_features(sents):
             #'''
             # previous words (especially helpful for beginning-of-sentence words
             for j in range(1,prev_N+1):
-                for k in range(10):
-                    prev_word = all_words[start-j]
+                for k in range(copies):
+                    prev_word = all_words[start+i-j]
                     features[('prev-unigram-%d'%j,k,prev_word)] = 1
             #'''
 
             # unigram (note: crfsuite has weird issues when given too few feats)
-            for j in range(10):
+            for j in range(copies):
                 features[('unigram',j,w.lower())] = 1
 
             # is this word a common name?
-            for j in range(10):
+            for j in range(copies):
                 if w.lower() in male_names:
                     features[('male_name',j)] = 1
                 if w.lower() in female_names:
@@ -209,11 +277,23 @@ def extract_features(sents):
 
             # next words (especially helpful for end-of-sentence words
             for j in range(1,prev_N+1):
-                for k in range(10):
-                    prev_word = all_words[end+j]
+                for k in range(copies):
+                    prev_word = all_words[start+i+j]
                     features[('next-unigram-%d'%j,k,prev_word)] = 1
 
+            '''
+            print 
+            print 'w: ', w
+            print 'i: ', i
+            print 'sent: ', sent
+            print 'span: ', all_words[start:end+1]
+            print features
+            print 
+            '''
+
             features_list.append(features)
+
+        #print '\n\n'
 
         text_features.append(features_list)
 
