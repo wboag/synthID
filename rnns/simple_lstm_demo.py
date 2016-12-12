@@ -1,5 +1,6 @@
 import tensorflow as tf
 import data_wrapper
+from datetime import datetime
 import metrics
 
 batch_size = 32
@@ -12,6 +13,8 @@ graph = tf.Graph()
 session = tf.Session(graph=graph)
 reader = data_wrapper.DataReader(embedding_dim=embedding_dim, num_threads=3)
 output_units = len(reader.tag_index)
+
+start_time = datetime.now().strftime('%m-%d-%H-%M-%S')
 model_name = 'simple_lstm_demo'
 
 
@@ -122,6 +125,7 @@ with session.as_default():
         _, batch_loss, filenames, line_nums = \
             session.run([step, loss, fnames, lines])
 
+        # logging to stdout for sanity checks every 50 steps
         if step_num % 50 == 0:
             x, y, y_ = session.run([tokens, tags, preds])
             accuracy = 1.0 * ((y == y_) & (y != 0)).sum() / (y != 0).sum()
@@ -137,6 +141,17 @@ with session.as_default():
             print 'Pred:      ', reader.decode_tags(y_[0][(y != 0)[0]][:15])
             print
 
+        # write train accuracy to log files every 100 steps
+        if step_num % 100 == 0:
+            train_loss = 0
+            train_eval_size = 50
+            for i in range(train_eval_size):
+                train_loss += session.run([loss])[0]
+            train_loss = train_loss / float(train_eval_size)
+            with open('logs/train_log-{}.txt'.format(start_time), 'a') as log:
+                log.write('{} {}\n'.format(step_num, train_loss))
+
+        # save model parameters every 10000 steps
         if step_num % 10000 == 0 and step_num > 0:
             saver.save(session, 'checkpoints/{}'.format(model_name), global_step=step_num)
 
