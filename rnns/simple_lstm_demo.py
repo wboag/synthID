@@ -3,7 +3,7 @@ import data_wrapper
 import metrics
 
 batch_size = 32
-hidden_units = 65
+hidden_units = 64
 learning_rate = .003
 training_steps = 5*10**5
 embedding_dim = 100  # 50, 100, 200, or 300
