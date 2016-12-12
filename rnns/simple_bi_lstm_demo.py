@@ -33,11 +33,6 @@ def predict(inputs, lengths):
     (a_fw,a_bw), _ = tf.nn.bidirectional_dynamic_rnn(cell_forward,cell_backward, inputs, lengths, dtype=tf.float32)
     a = a_fw*a_bw
 
-    cell = tf.nn.rnn_cell.BasicLSTMCell(hidden_units)
-    num_layers = 2
-    cell_1 = tf.nn.rnn_cell.MultiRNNCell([tf.nn.rnn_cell.LSTMCell(hidden_units)]*num_layers)
-    a, _ = tf.nn.dynamic_rnn(cell_1, inputs, lengths, dtype=tf.float32)
-
     W = tf.get_variable(
         name='fc_weights',
         initializer=tf.random_normal_initializer(),
@@ -64,6 +59,7 @@ def evaluate_test_set(session, tags, preds, fnames, lines, batch_limit=None):
     batch_num = 0
     num_sequences = 0
     p_tp_total, p_fp_total, r_tp_total, r_fn_total = 0, 0, 0, 0
+    p_tp_total_binary, p_fp_total_binary, r_tp_total_binary, r_fn_total_binary = 0, 0, 0, 0
 
     while True:
         try:
