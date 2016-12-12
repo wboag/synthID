@@ -32,7 +32,7 @@ def precision_tag(reader, correct_tags,predicted_tags):
     empty_tag = '<PAD>'
     outside_tag = 'OUTSIDE'
     tag_list = ['DATE','HOSPITAL','LOCATION','CONTACT','NUMBER','NAME']
-    per_tag_fp,per_tag_tp,,per_tag_p = initialize_dicts(tag_list)
+    per_tag_fp,per_tag_tp,per_tag_p = initialize_dicts(tag_list)
 
     for sent in range(len(correct_tags)):
         correct_tag_list = reader.decode_tags(correct_tags[sent]).split(' ')
