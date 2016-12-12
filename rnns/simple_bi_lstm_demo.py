@@ -127,14 +127,15 @@ with session.as_default():
             precision, recall, f1 = metrics.precision_recall_f1(reader, y, y_)
 
             # print some info about the batch
-            print 'Loss:      ', batch_loss
+        
+        ''' print 'Loss:      ', batch_loss
             print 'Precision: ', precision
             print 'Recall:    ', recall
             print 'f1:        ', f1
             print 'Sentence:  ', reader.decode_tokens(x[0][(y != 0)[0]][:15])
             print 'Truth:     ', reader.decode_tags(y[0][(y != 0)[0]][:15])
             print 'Pred:      ', reader.decode_tags(y_[0][(y != 0)[0]][:15])
-            print
+            print'''
 
     evaluate_test_set(session, test_tags, test_preds, test_fnames, test_lines)
     train_coord.request_stop()
