@@ -3,7 +3,7 @@ import data_wrapper
 import metrics
 
 batch_size = 32
-hidden_units = 64
+hidden_units = 65
 learning_rate = .003
 training_steps = 5*10**5
 embedding_dim = 100  # 50, 100, 200, or 300
@@ -28,7 +28,8 @@ def get_batch(batch_size, train=False):
 
 def predict(inputs, lengths):
     cell = tf.nn.rnn_cell.BasicLSTMCell(hidden_units)
-    a, _ = tf.nn.dynamic_rnn(cell, inputs, lengths, dtype=tf.float32)
+    (a_fw, a_bw), _ = tf.nn.bidirectional_dynamic_rnn(cell, cell, inputs, lengths, dtype=tf.float32)
+    a = a_fw * a_bw
     W = tf.get_variable(
         name='fc_weights',
         initializer=tf.random_normal_initializer(),
