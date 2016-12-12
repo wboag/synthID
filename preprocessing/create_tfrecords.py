@@ -43,7 +43,7 @@ def tagged_sequences(dir_name, limit):
 
     intersection = set(text_map.keys()) & set(tag_map.keys())
 
-    intersection = list(intersection)[:10]
+    intersection = list(intersection)
 
     all_tokens, all_tags, fnames, line_nums = [], [], [], []
     all_tokens, all_tags = [], []
