@@ -12,6 +12,7 @@ graph = tf.Graph()
 session = tf.Session(graph=graph)
 reader = data_wrapper.DataReader(embedding_dim=embedding_dim, num_threads=3)
 output_units = len(reader.tag_index)
+model_name = 'simple_lstm_demo'
 
 
 def get_batch(batch_size, train=False):
@@ -28,7 +29,8 @@ def get_batch(batch_size, train=False):
 
 def predict(inputs, lengths):
     cell = tf.nn.rnn_cell.BasicLSTMCell(hidden_units)
-    (a_fw, a_bw), _ = tf.nn.bidirectional_dynamic_rnn(cell, cell, inputs, lengths, dtype=tf.float32)
+    (a_fw, a_bw), _ = tf.nn.bidirectional_dynamic_rnn(
+        cell, cell, inputs, lengths, dtype=tf.float32)
     a = a_fw * a_bw
     W = tf.get_variable(
         name='fc_weights',
@@ -101,6 +103,7 @@ with graph.as_default():
         test_logits, test_preds = predict(test_inputs, test_lengths)
         test_loss = cross_entropy(test_logits, test_lengths, test_tags)
 
+    saver = tf.train.Saver()
     init = tf.group(tf.global_variables_initializer(),
                     tf.local_variables_initializer())
 
@@ -110,9 +113,15 @@ with session.as_default():
     train_coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(session, train_coord)
 
+    warm_start_init_step = 0
+    if warm_start_init_step != 0:
+        ckpt_file = 'checkpoints/{}-{}'.format(model_name, warm_start_init_step)
+        saver.restore(session, ckpt_file)
+
     for step_num in range(training_steps):
         _, batch_loss, filenames, line_nums = \
             session.run([step, loss, fnames, lines])
+
         if step_num % 50 == 0:
             x, y, y_ = session.run([tokens, tags, preds])
             accuracy = 1.0 * ((y == y_) & (y != 0)).sum() / (y != 0).sum()
@@ -127,6 +136,9 @@ with session.as_default():
             print 'Truth:     ', reader.decode_tags(y[0][(y != 0)[0]][:15])
             print 'Pred:      ', reader.decode_tags(y_[0][(y != 0)[0]][:15])
             print
+
+        if step_num % 100 == 0 and step_num > 0:
+            saver.save(session, 'checkpoints/{}'.format(model_name), global_step=step_num)
 
     evaluate_test_set(session, test_tags, test_preds, test_fnames, test_lines)
     train_coord.request_stop()
