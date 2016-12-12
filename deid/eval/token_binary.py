@@ -87,6 +87,11 @@ def main():
             gold = get_category( ref_tags[i][j])
             pred = get_category(pred_tags[i][j])
 
+            print pred
+            print gold
+            print 
+            exit()
+
             confusion[gold][pred] += 1
 
     for c in categories:
