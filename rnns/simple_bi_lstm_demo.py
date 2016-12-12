@@ -75,6 +75,14 @@ def evaluate_test_set(session, tags, preds, fnames, lines, batch_limit=None):
             p_fp_total += p_fp
             r_tp_total += r_tp
             r_fn_total += r_fn
+
+            p_tp_binary, p_fp_binary = metrics.precision_binary(reader, y, y_, counts=True)
+            r_tp_binary, r_fn_binary = metrics.recall_binary(reader, y, y_, counts=True)
+            p_tp_total_binary += p_tp_binary
+            p_fp_total_binary += p_fp_binary
+            r_tp_total_binary += r_tp_binary
+            r_fn_total_binary += r_fn_binary
+
             num_sequences += len(y)
             batch_num += 1
             if batch_num == batch_limit:
@@ -88,10 +96,18 @@ def evaluate_test_set(session, tags, preds, fnames, lines, batch_limit=None):
         recall = r_tp_total / (r_tp_total + r_fn_total)
         f1 = metrics.f1(precision, recall)
 
+        precision_binary = p_tp_total_binary / (p_tp_total_binary + p_fp_total_binary)
+        recall_binary = r_tp_total_binary / (r_tp_total_binary + r_fn_total_binary)
+        f1_binary = metrics.f1(precision_binary, recall_binary)
+
         print 'Evaluated {} sequences from test set'.format(num_sequences)
         print 'Precision:  ', precision
         print 'Recall:     ', recall
         print 'f1:         ', f1
+
+        print 'Precision Binary:  ', precision_binary
+        print 'Recall Binary:     ', recall_binary
+        print 'f1 Binary:         ', f1_binary
 
 
 with graph.as_default():
@@ -121,12 +137,14 @@ with session.as_default():
     for step_num in range(training_steps):
         _, batch_loss, filenames, line_nums = \
             session.run([step, loss, fnames, lines])
-        if step_num % 50 == 0:
+        if step_num % 10000 == 0:
             x, y, y_ = session.run([tokens, tags, preds])
             accuracy = 1.0 * ((y == y_) & (y != 0)).sum() / (y != 0).sum()
             precision, recall, f1 = metrics.precision_recall_f1(reader, y, y_)
+            precision_dict,recall_dict,f1_dict = metrics.precision_recall_f1_tags(reader,y,y_)
 
             # print some info about the batch
+        
         
         ''' print 'Loss:      ', batch_loss
             print 'Precision: ', precision
@@ -135,7 +153,9 @@ with session.as_default():
             print 'Sentence:  ', reader.decode_tokens(x[0][(y != 0)[0]][:15])
             print 'Truth:     ', reader.decode_tags(y[0][(y != 0)[0]][:15])
             print 'Pred:      ', reader.decode_tags(y_[0][(y != 0)[0]][:15])
-            print'''
+            print 'precision_dict: ' , precision_dict
+            print 'recall_dict: ', recall_dict
+            print 'f1_dict: ',f1_dict '''
 
     evaluate_test_set(session, test_tags, test_preds, test_fnames, test_lines)
     train_coord.request_stop()
