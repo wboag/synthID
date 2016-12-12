@@ -137,7 +137,7 @@ with session.as_default():
             print 'Pred:      ', reader.decode_tags(y_[0][(y != 0)[0]][:15])
             print
 
-        if step_num % 100 == 0 and step_num > 0:
+        if step_num % 10000 == 0 and step_num > 0:
             saver.save(session, 'checkpoints/{}'.format(model_name), global_step=step_num)
 
     evaluate_test_set(session, test_tags, test_preds, test_fnames, test_lines)
