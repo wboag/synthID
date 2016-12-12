@@ -8,6 +8,7 @@ hidden_units = 64
 learning_rate = .003
 training_steps = 10**5
 embedding_dim = 50  # 50, 100, 200, or 300
+layers = 3
 
 graph = tf.Graph()
 session = tf.Session(graph=graph)
@@ -30,8 +31,8 @@ def get_batch(batch_size, train=False):
 
 
 def predict(inputs, lengths):
-    cell = tf.nn.rnn_cell.BasicLSTMCell(hidden_units)
-    a, _ = tf.nn.dynamic_rnn(cell, inputs, lengths, dtype=tf.float32)
+    cells = tf.nn.rnn_cell.MultiRNNCell([tf.nn.rnn_cell.LSTMCell(hidden_units)]*layers)
+    a, _ = tf.nn.dynamic_rnn(cells, inputs, lengths, dtype=tf.float32)
     W = tf.Variable(tf.random_normal([hidden_units, output_units]))
     b = tf.Variable(tf.zeros([output_units]))
     z = tf.matmul(tf.reshape(a, [-1, hidden_units]), W) + b

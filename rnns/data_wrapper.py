@@ -89,3 +89,20 @@ class DataReader(object):
             capacity=20000
         )
         return tokens, tags, length, filenames, line_nums
+
+
+    # def get_binary_tags(self, tags):
+    #     print "tags", tags.get_shape()
+    #     six_tensor = 6*tf.ones_like(tags)
+    #     zero_tensor = tf.zeros_like(tags)
+    #     ones_tensor = tf.ones_like(tags)
+
+    #     is_six = tf.equal(tags, six_tensor)
+    #     is_zero = tf.equal(tags, zero_tensor)
+    #     is_one = tf.equal(tags, ones_tensor)
+
+    #     six_or_zero = tf.logical_or(is_six, is_zero)
+    #     any_non_phi = tf.logical_or(six_or_zero, is_one)
+    #     any_non_phi = (tf.cast(any_non_phi, dtype=tf.int32) - 1) * -1
+
+    #     return any_non_phi

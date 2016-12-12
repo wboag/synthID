@@ -177,6 +177,7 @@ def recall(reader, correct_tags,predicted_tags,binary=False, counts=False):
     return true_positive/total if total != 0 else float('nan')
 
 def precision_binary(reader, correct_tags,predicted_tags, counts=False):
+
     '''Takes in a list of predictions, true tags as 0s and 1s and computes precision by defining:
     False positive when actual = 0 and predicted a 1
     True positive when actual = 1 and predicted = 1
@@ -184,8 +185,8 @@ def precision_binary(reader, correct_tags,predicted_tags, counts=False):
     true_positive = 0.0
     false_positive = 0.0
     for sent in range(len(correct_tags)):
-        correct_tag_list = reader.decode_tags(correct_tags[sent]).split(' ')
-        predicted_tag_list = reader.decode_tags(predicted_tags[sent]).split(' ')
+        correct_tag_list = correct_tags[sent]
+        predicted_tag_list = predicted_tags[sent]
         for tag in range(len(correct_tag_list)):
             predicted = predicted_tag_list[tag]
             actual = correct_tag_list[tag]
@@ -197,6 +198,7 @@ def precision_binary(reader, correct_tags,predicted_tags, counts=False):
     if counts:
         return true_positive, false_positive
     return true_positive/total if total != 0 else float('nan')
+
 def recall_binary(reader, correct_tags,predicted_tags, counts=False):
     '''Takes in a list of predictions as 0s and 1s and computes recall by defining:
     False positive when actual = 0 and predicted a 1
@@ -209,9 +211,10 @@ def recall_binary(reader, correct_tags,predicted_tags, counts=False):
     #reader = data_wrapper.DataReader()
 
     for sent in range(len(correct_tags)):
-        correct_tag_list = reader.decode_tags(correct_tags[sent]).split(' ')
-        predicted_tag_list = reader.decode_tags(predicted_tags[sent]).split(' ')
-        for tag in range(len(predicted_tag_list)):
+        correct_tag_list = correct_tags[sent]
+        predicted_tag_list = predicted_tags[sent]
+
+        for tag in range(len(correct_tag_list)):
             predicted = predicted_tag_list[tag]
             actual = correct_tag_list[tag]
             if not(actual) and predicted:
