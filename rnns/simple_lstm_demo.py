@@ -151,8 +151,8 @@ with session.as_default():
             with open('logs/train_log-{}.txt'.format(start_time), 'a') as log:
                 log.write('{} {}\n'.format(step_num, train_loss))
 
-        # save model parameters every 10000 steps
-        if step_num % 10000 == 0 and step_num > 0:
+        # save model parameters every 1000 steps
+        if step_num % 1000 == 0 and step_num > 0:
             saver.save(session, 'checkpoints/{}'.format(model_name), global_step=step_num)
 
     evaluate_test_set(session, test_tags, test_preds, test_fnames, test_lines)
