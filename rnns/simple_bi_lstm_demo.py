@@ -63,6 +63,8 @@ def evaluate_test_set(session, tags, preds, fnames, lines, batch_limit=None):
 
     while True:
         try:
+
+            #Train All tags, eval all tags setting
             y, y_, filenames, line_nums = \
                 session.run([tags, preds, fnames, lines])
             p_tp, p_fp = metrics.precision(reader, y, y_, counts=True)
@@ -72,12 +74,16 @@ def evaluate_test_set(session, tags, preds, fnames, lines, batch_limit=None):
             r_tp_total += r_tp
             r_fn_total += r_fn
 
-            p_tp_binary, p_fp_binary = metrics.precision_binary(reader, y, y_, counts=True)
-            r_tp_binary, r_fn_binary = metrics.recall_binary(reader, y, y_, counts=True)
+            #Train All tags, eval binary setting
+            p_tp_binary, p_fp_binary = metrics.precision(reader, y, y_, binary=True, counts=True)
+            r_tp_binary, r_fn_binary = metrics.recall(reader, y, y_, binary=True , counts=True)
             p_tp_total_binary += p_tp_binary
             p_fp_total_binary += p_fp_binary
             r_tp_total_binary += r_tp_binary
             r_fn_total_binary += r_fn_binary
+
+            #TODO: Train binary, eval binary setting
+            
 
             num_sequences += len(y)
             batch_num += 1
