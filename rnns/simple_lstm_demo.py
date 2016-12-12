@@ -13,7 +13,6 @@ graph = tf.Graph()
 session = tf.Session(graph=graph)
 reader = data_wrapper.DataReader(embedding_dim=embedding_dim, num_threads=3)
 output_units = len(reader.tag_index)
-
 start_time = datetime.now().strftime('%m-%d-%H-%M-%S')
 model_name = 'simple_lstm_demo'
 
@@ -32,19 +31,9 @@ def get_batch(batch_size, train=False):
 
 def predict(inputs, lengths):
     cell = tf.nn.rnn_cell.BasicLSTMCell(hidden_units)
-    (a_fw, a_bw), _ = tf.nn.bidirectional_dynamic_rnn(
-        cell, cell, inputs, lengths, dtype=tf.float32)
-    a = a_fw * a_bw
-    W = tf.get_variable(
-        name='fc_weights',
-        initializer=tf.random_normal_initializer(),
-        shape=[hidden_units, output_units]
-    )
-    b = tf.get_variable(
-        name='fc_biases',
-        initializer=tf.constant_initializer(),
-        shape=[output_units]
-    )
+    a, _ = tf.nn.dynamic_rnn(cell, inputs, lengths, dtype=tf.float32)
+    W = tf.Variable(tf.random_normal([hidden_units, output_units]))
+    b = tf.Variable(tf.zeros([output_units]))
     z = tf.matmul(tf.reshape(a, [-1, hidden_units]), W) + b
     z = tf.reshape(z, [-1, tf.shape(a)[1], output_units])
     preds = tf.argmax(z, 2)
@@ -122,6 +111,7 @@ with session.as_default():
         saver.restore(session, ckpt_file)
 
     for step_num in range(training_steps):
+
         _, batch_loss, filenames, line_nums = \
             session.run([step, loss, fnames, lines])
 
