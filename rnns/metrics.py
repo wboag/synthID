@@ -1,21 +1,65 @@
+# def initialize_dicts(tag_list,fp=True,tp=True,fn=False,overall=True):
+#     '''Helper method used to initialize per_category precision and recall dictionaries'''
+#     per_tag_fp = {}
+#     per_tag_tp = {}
+#     per_tag_overall = {}
+#     if fn:
+#         per_tag_fn = {}
+#     for t in tag_list:
+#         per_tag_fp[t]=0.0
+#         per_tag_tp[t]=0.0
+#         per_tag_overall[t]=0.0
+#         if fn:
+#             per_tag_fn[t]=0.0
+#     if fn:
+#         return per_tag_fp,per_tag_tp,per_tag_fn,per_tag_overall
+#     else:
+#         return per_tag_fp,per_tag_tp,per_tag_overall
 
-def initialize_dicts(tag_list,fp=True,tp=True,fn=False,overall=True):
-    '''Helper method used to initialize per_category precision and recall dictionaries'''
-    per_tag_fp = {}
-    per_tag_tp = {}
-    per_tag_overall = {}
-    if fn:
-        per_tag_fn = {}
-    for t in tag_list:
-        per_tag_fp[t]=0.0
-        per_tag_tp[t]=0.0
-        per_tag_overall[t]=0.0
-        if fn:
-            per_tag_fn[t]=0.0
-    if fn:
-        return per_tag_fp,per_tag_tp,per_tag_fn,per_tag_overall
-    else:
-        return per_tag_fp,per_tag_tp,per_tag_overall
+def initialize_dicts(tag_list):
+    tp_dict, fp_dict, tn_dict, fn_dict = {}, {}, {}, {}
+    for tag in tag_list:
+        tp_dict[tag] = 0.0
+        fp_dict[tag] = 0.0
+        tn_dict[tag] = 0.0
+        fn_dict[tag] = 0.0
+    return tp_dict, fp_dict, tn_dict, fn_dict
+
+def class_specific_counts(reader, correct_tags, predicted_tags):
+    empty_tag = '<PAD>'
+    outside_tag = 'OUTSIDE'
+    tag_list = ['DATE','HOSPITAL','LOCATION','CONTACT','NUMBER','NAME']
+    tp_dict, fp_dict, tn_dict, fn_dict = initialize_dicts(tag_list)
+
+    num_examples, sentence_length = correct_tags.shape
+
+    for sentence_index in range(num_examples):
+        correct_tag_list = reader.decode_tags(correct_tags[sentence_index]).split(' ')
+        predicted_tag_list = reader.decode_tags(predicted_tags[sentence_index]).split(' ')
+        
+        for tag_index in range(sentence_length):
+            correct_tag = correct_tag_list[tag_index].split('-')[0]
+            predicted_tag = predicted_tag_list[tag_index].split('-')[0]
+
+
+            if correct_tag == outside_tag and predicted_tag in tag_list:
+                fp_dict[predicted_tag] += 1.0
+
+            elif correct_tag in tag_list and predicted_tag in tag_list:
+                if correct_tag == predicted_tag:
+                    tp_dict[correct_tag] += 1.0
+                else: 
+                    fn_dict[correct_tag] += 1.0
+                    fp_dict[predicted_tag] += 1.0
+
+            elif correct_tag in tag_list and predicted_tag == outside_tag:
+                fn_dict[correct_tag] += 1.0
+
+            # elif correct_tag == outside_tag and predicted_tag == outside_tag:
+            #     tn_dict[correct_tag] += 1
+
+    return tp_dict, fp_dict, tn_dict, fn_dict
+
 
 def precision_tag(reader, correct_tags,predicted_tags):
     '''
@@ -124,9 +168,12 @@ def precision(reader, correct_tags,predicted_tags,binary=False, counts=False):
     for sent in range(len(correct_tags)):
         correct_tag_list = reader.decode_tags(correct_tags[sent]).split(' ')
         predicted_tag_list = reader.decode_tags(predicted_tags[sent]).split(' ')
+
+
         for tag in range(len(correct_tag_list)):
             predicted = predicted_tag_list[tag]
             actual = correct_tag_list[tag]
+
             if actual == outside_tag and predicted !=outside_tag:
                 false_positive+=1.0
             if binary:

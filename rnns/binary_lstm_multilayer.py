@@ -6,7 +6,7 @@ import metrics
 batch_size = 32
 hidden_units = 64
 learning_rate = .003
-training_steps = 10**5
+training_steps = 50000
 embedding_dim = 50  # 50, 100, 200, or 300
 layers = 3
 
@@ -15,7 +15,7 @@ session = tf.Session(graph=graph)
 reader = data_wrapper.DataReader(embedding_dim=embedding_dim, num_threads=3)
 output_units = 2
 start_time = datetime.now().strftime('%m-%d-%H-%M-%S')
-model_name = 'binary_simple_lstm'
+model_name = 'binary_lstm_multilayer'
 
 
 def get_batch(batch_size, train=False):
@@ -31,16 +31,16 @@ def get_batch(batch_size, train=False):
     return tokens, tags, lengths, inputs, filenames, line_nums, binary_tags
 
 def get_binary_tags(tags):
-    six_tensor = 6*tf.ones_like(tags)
+    ten_tensor = 10*tf.ones_like(tags)
     zero_tensor = tf.zeros_like(tags)
     ones_tensor = tf.ones_like(tags)
 
-    is_six = tf.equal(tags, six_tensor)
+    is_ten = tf.equal(tags, ten_tensor)
     is_zero = tf.equal(tags, zero_tensor)
     is_one = tf.equal(tags, ones_tensor)
 
-    six_or_zero = tf.logical_or(is_six, is_zero)
-    any_non_phi = tf.logical_or(six_or_zero, is_one)
+    ten_or_zero = tf.logical_or(is_ten, is_zero)
+    any_non_phi = tf.logical_or(ten_or_zero, is_one)
     any_non_phi = (tf.cast(any_non_phi, dtype=tf.int32) - 1) * -1
 
     return any_non_phi
@@ -48,8 +48,16 @@ def get_binary_tags(tags):
 def predict(inputs, lengths):
     cells = tf.nn.rnn_cell.MultiRNNCell([tf.nn.rnn_cell.LSTMCell(hidden_units)]*layers)
     a, _ = tf.nn.dynamic_rnn(cells, inputs, lengths, dtype=tf.float32)
-    W = tf.Variable(tf.random_normal([hidden_units, output_units]))
-    b = tf.Variable(tf.zeros([output_units]))
+    W = tf.get_variable(
+        name='fc_weights',
+        initializer=tf.random_normal_initializer(),
+        shape=[hidden_units, output_units]
+    )
+    b = tf.get_variable(
+        name='fc_biases',
+        initializer=tf.constant_initializer(),
+        shape=[output_units]
+    )
     z = tf.matmul(tf.reshape(a, [-1, hidden_units]), W) + b
     z = tf.reshape(z, [-1, tf.shape(a)[1], output_units])
     preds = tf.argmax(tf.round(tf.nn.sigmoid(z)),2)
@@ -134,7 +142,6 @@ with session.as_default():
         # logging to stdout for sanity checks every 50 steps
         if step_num % 50 == 0:
             x, y, y_ = session.run([tokens, binary_tags, preds])
-            accuracy = 1.0 * ((y == y_) & (y != 0)).sum() / (y != 0).sum()
             precision = metrics.precision_binary(reader, y, y_)
             recall = metrics.recall_binary(reader, y, y_)
             f1 = metrics.f1(precision, recall)
@@ -156,7 +163,7 @@ with session.as_default():
             for i in range(train_eval_size):
                 train_loss += session.run([loss])[0]
             train_loss = train_loss / float(train_eval_size)
-            with open('logs/train_log-{}.txt'.format(start_time), 'a') as log:
+            with open('logs/train_log-{}.txt'.format(model_name), 'a') as log:
                 log.write('{} {}\n'.format(step_num, train_loss))
 
         # save model parameters every 1000 steps
