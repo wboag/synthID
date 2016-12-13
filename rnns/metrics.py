@@ -1,22 +1,22 @@
-# def initialize_dicts(tag_list,fp=True,tp=True,fn=False,overall=True):
-#     '''Helper method used to initialize per_category precision and recall dictionaries'''
-#     per_tag_fp = {}
-#     per_tag_tp = {}
-#     per_tag_overall = {}
-#     if fn:
-#         per_tag_fn = {}
-#     for t in tag_list:
-#         per_tag_fp[t]=0.0
-#         per_tag_tp[t]=0.0
-#         per_tag_overall[t]=0.0
-#         if fn:
-#             per_tag_fn[t]=0.0
-#     if fn:
-#         return per_tag_fp,per_tag_tp,per_tag_fn,per_tag_overall
-#     else:
-#         return per_tag_fp,per_tag_tp,per_tag_overall
+def initialize_dicts(tag_list,fp=True,tp=True,fn=False,overall=True):
+    '''Helper method used to initialize per_category precision and recall dictionaries'''
+    per_tag_fp = {}
+    per_tag_tp = {}
+    per_tag_overall = {}
+    if fn:
+        per_tag_fn = {}
+    for t in tag_list:
+        per_tag_fp[t]=0.0
+        per_tag_tp[t]=0.0
+        per_tag_overall[t]=0.0
+        if fn:
+            per_tag_fn[t]=0.0
+    if fn:
+        return per_tag_fp,per_tag_tp,per_tag_fn,per_tag_overall
+    else:
+        return per_tag_fp,per_tag_tp,per_tag_overall
 
-def initialize_dicts(tag_list):
+def initialize_dicts_for_tags(tag_list):
     tp_dict, fp_dict, tn_dict, fn_dict = {}, {}, {}, {}
     for tag in tag_list:
         tp_dict[tag] = 0.0
@@ -29,7 +29,7 @@ def class_specific_counts(reader, correct_tags, predicted_tags):
     empty_tag = '<PAD>'
     outside_tag = 'OUTSIDE'
     tag_list = ['DATE','HOSPITAL','LOCATION','CONTACT','NUMBER','NAME']
-    tp_dict, fp_dict, tn_dict, fn_dict = initialize_dicts(tag_list)
+    tp_dict, fp_dict, tn_dict, fn_dict = initialize_dicts_for_tags(tag_list)
 
     num_examples, sentence_length = correct_tags.shape
 

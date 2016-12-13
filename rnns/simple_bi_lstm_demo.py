@@ -5,7 +5,7 @@ import metrics
 batch_size = 32
 hidden_units = 64
 learning_rate = .003
-training_steps = 10**5
+training_steps = 50000
 embedding_dim = 50  # 50, 100, 200, or 300
 
 graph = tf.Graph()
@@ -111,6 +111,59 @@ def evaluate_test_set(session, tags, preds, fnames, lines, batch_limit=None):
         print 'Recall Binary:     ', recall_binary
         print 'f1 Binary:         ', f1_binary
 
+def evaluate_test_set_class_specific(session, tags, preds, batch_limit=None):
+    batch_num = 0
+    num_sequences = 0
+    tag_list = ['DATE','HOSPITAL','LOCATION','CONTACT','NUMBER','NAME']
+    total_tp, total_fp, total_tn, total_fn = metrics.initialize_dicts(tag_list)
+    p, r, f1 = {}, {}, {}
+
+    while True:
+        try:
+            y, y_, filenames, line_nums = \
+                session.run([tags, preds, fnames, lines])
+
+            tp_dict, fp_dict, tn_dict, fn_dict = metrics.class_specific_counts(reader, y, y_)
+            print tp_dict, fp_dict, tn_dict, fn_dict
+            for tag in tag_list:
+                total_tp[tag] += tp_dict[tag]
+                total_fp[tag] += fp_dict[tag]
+                total_tn[tag] += tn_dict[tag]
+                total_fn[tag] += fn_dict[tag]
+
+            num_sequences += len(y)
+            batch_num += 1
+            if batch_num == batch_limit:
+                break
+
+        except tf.errors.OutOfRangeError:
+            print 'test queue is empty'
+            break
+
+    for tag in tag_list: 
+        tp, fp, tn, fn = total_tp[tag], total_fp[tag], total_tn[tag], total_fn[tag]
+        p[tag] = tp / ( tp + fp ) if (tp + fp) > 0 else 0
+        r[tag] = tp / ( tp + fn ) if (tp + fn) > 0 else 0
+        f1[tag] = (2.0 * tp) / (2.0*tp + fp + fn) if (2.0*tp + fp + fn) > 0 else 0
+
+    print 'Evaluated {} sequences from test set'.format(num_sequences)
+    for tag in tag_list: 
+        print tag
+        print "Precision: ", p[tag]
+        print "Recall: ", p[tag]
+        print "F1: ", f1[tag]
+
+    all_tag_tp = sum(total_tp.values())
+    all_tag_fp = sum(total_fp.values())
+    all_tag_fn = sum(total_fn.values())
+    avg_p = all_tag_tp / ( all_tag_tp + all_tag_fp )
+    avg_r = all_tag_tp / ( all_tag_tp + all_tag_fn ) 
+    avg_f1 = (2.0 * all_tag_tp) / (2.0*all_tag_tp + all_tag_fp + all_tag_fn)
+    print "Averages: "
+    print "Precision: ", avg_p
+    print "Recall: ", avg_r
+    print "F1: ", avg_f1
+
 
 with graph.as_default():
 
@@ -159,6 +212,7 @@ with session.as_default():
             print 'recall_dict: ', recall_dict
             print 'f1_dict: ',f1_dict '''
 
+    evaluate_test_set_class_specific(session, test_tags, test_preds)
     evaluate_test_set(session, test_tags, test_preds, test_fnames, test_lines)
     train_coord.request_stop()
     train_coord.join(threads)

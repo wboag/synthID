@@ -115,7 +115,7 @@ def evaluate_test_set_class_specific(session, tags, preds, batch_limit=None):
     batch_num = 0
     num_sequences = 0
     tag_list = ['DATE','HOSPITAL','LOCATION','CONTACT','NUMBER','NAME']
-    total_tp, total_fp, total_tn, total_fn = metrics.initialize_dicts(tag_list)
+    total_tp, total_fp, total_tn, total_fn = metrics.initialize_dicts_for_tags(tag_list)
     p, r, f1 = {}, {}, {}
 
     while True:
