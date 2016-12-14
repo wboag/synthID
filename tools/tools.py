@@ -139,7 +139,7 @@ def read_txt(txt_file):
 
 
 
-def read_tags(sents, tags_file):
+def read_tags(sents, tags_file, do_binary=False):
     # read tags
     annotations = []
     with open(tags_file, 'r') as f:
@@ -151,6 +151,8 @@ def read_tags(sents, tags_file):
             end    = int(toks[1].split(':')[1])
             segment = toks[2][7:-2]
             label   = toks[3][8:-2]
+            if do_binary:
+                label = 'PHI'
             annotations.append( (lineno,start,end,segment,label) )
 
     # construct sequence tags

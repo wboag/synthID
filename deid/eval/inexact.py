@@ -23,7 +23,7 @@ def main():
         pred_files = sys.argv[2]
         ref_files  = sys.argv[3]
     except Exception, e:
-        print >>sys.stderr, '\n\tusage: python %s [txt-files] [pred-files] [ref-files]\n'%sys.argv[0]
+        print >>sys.stderr, '\n\tusage: python %s <txt-files> <pred-files> <ref-files> [--binary]\n'%sys.argv[0]
         exit(1)
 
 
@@ -31,42 +31,77 @@ def main():
     #                              READ DATA                             #
     ######################################################################
 
+    txt_seen  = set()
+    pred_seen = set()
+    ref_seen  = set()
+
+
+    for tags_file in glob.glob(txt_files):
+        key = '.'.join(os.path.split(tags_file)[1].split('.')[:-1])
+        txt_seen.add(key)
+
+    for tags_file in glob.glob(pred_files):
+        key = '.'.join(os.path.split(tags_file)[1].split('.')[:-1])
+        pred_seen.add(key)
+
+    for tags_file in glob.glob(ref_files):
+        key = '.'.join(os.path.split(tags_file)[1].split('.')[:-1])
+        ref_seen.add(key)
+
+    seen = txt_seen & pred_seen & ref_seen
+
+    if '--binary' in sys.argv:
+        do_binary = True
+    else:
+        do_binary = False
+
     # read all text files for one large batch training set
     sentences = {}
     for txt_file in glob.glob(txt_files):
         key = '.'.join(os.path.split(txt_file)[1].split('.')[:-1])
+        if key not in seen:
+            continue
         s = read_txt(txt_file)
         sentences[key] = s
 
     # read references
-    sents = []
-    ref_tags = []
+    ref = {}
     categories = set()
     for tags_file in glob.glob(pred_files):
         key = '.'.join(os.path.split(tags_file)[1].split('.')[:-1])
-        if key not in sentences:
+        if key not in seen:
             continue
 
         s = sentences[key]
 
-        t,c = read_tags(s, tags_file)
+        t,c = read_tags(s, tags_file, do_binary=do_binary)
 
-        sents += s
-        ref_tags  += t
+        ref[key] = t
         categories.update(c)
 
     # read predictions
-    pred_tags = []
+    pred = {}
     for tags_file in glob.glob(ref_files):
         key = '.'.join(os.path.split(tags_file)[1].split('.')[:-1])
-        if key not in sentences:
+        if key not in seen:
             continue
 
         s = sentences[key]
-        t,c = read_tags(s, tags_file)
+        t,c = read_tags(s, tags_file, do_binary=do_binary)
 
-        pred_tags+= t
+        pred[key] = t
         categories.update(c)
+
+    # this excludes an entire file if there is an alignment problem between sentences
+    # (problem would come from tokenization issues)
+    sents = []
+    pred_tags = []
+    ref_tags  = []
+    for key in seen:
+        if len(pred[key]) == len(ref[key]):
+            sents      += sentences[key]
+            pred_tags  += pred[key]
+            ref_tags   += ref[key]
 
 
     ######################################################################
@@ -86,11 +121,6 @@ def main():
         for j in range(len(ref_tags[i])):
             gold = get_category( ref_tags[i][j])
             pred = get_category(pred_tags[i][j])
-
-            print pred
-            print gold
-            print 
-            exit()
 
             confusion[gold][pred] += 1
 

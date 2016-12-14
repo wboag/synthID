@@ -55,6 +55,12 @@ def main():
 
     print 'training on %d files' % N
 
+    # flag that allows training on binary PHI (rather than specifically name/number/etc)
+    if '--binary' in sys.argv:
+        do_binary = True
+    else:
+        do_binary = False
+
     # read tags
     sents = []
     tags = []
@@ -66,7 +72,7 @@ def main():
 
         s = sentences[key]
 
-        t,c = read_tags(s, tags_file)
+        t,c = read_tags(s, tags_file, do_binary=do_binary)
 
         sents += s
         tags  += t
