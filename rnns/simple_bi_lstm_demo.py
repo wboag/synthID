@@ -1,21 +1,18 @@
 import tensorflow as tf
 import data_wrapper
-from datetime import datetime
 import metrics
 
 batch_size = 32
 hidden_units = 64
 learning_rate = .003
-training_steps = 0
+training_steps = 50000
 embedding_dim = 50  # 50, 100, 200, or 300
 
 graph = tf.Graph()
 session = tf.Session(graph=graph)
 reader = data_wrapper.DataReader(embedding_dim=embedding_dim, num_threads=3)
 output_units = len(reader.tag_index)
-start_time = datetime.now().strftime('%m-%d-%H-%M-%S')
-model_name = 'simple_lstm'
-
+print reader.tag_index
 
 def get_batch(batch_size, train=False):
     load_batch = reader.get_train_batch if train else reader.get_test_batch
@@ -30,8 +27,12 @@ def get_batch(batch_size, train=False):
 
 
 def predict(inputs, lengths):
-    cell = tf.nn.rnn_cell.BasicLSTMCell(hidden_units)
-    a, _ = tf.nn.dynamic_rnn(cell, inputs, lengths, dtype=tf.float32)
+    cell_forward = tf.nn.rnn_cell.BasicLSTMCell(hidden_units)
+    cell_backward = tf.nn.rnn_cell.BasicLSTMCell(hidden_units)
+
+    (a_fw,a_bw), _ = tf.nn.bidirectional_dynamic_rnn(cell_forward,cell_backward, inputs, lengths, dtype=tf.float32)
+    a = a_fw*a_bw
+
     W = tf.get_variable(
         name='fc_weights',
         initializer=tf.random_normal_initializer(),
@@ -110,12 +111,11 @@ def evaluate_test_set(session, tags, preds, fnames, lines, batch_limit=None):
         print 'Recall Binary:     ', recall_binary
         print 'f1 Binary:         ', f1_binary
 
-
 def evaluate_test_set_class_specific(session, tags, preds, batch_limit=None):
     batch_num = 0
     num_sequences = 0
     tag_list = ['DATE','HOSPITAL','LOCATION','CONTACT','NUMBER','NAME']
-    total_tp, total_fp, total_tn, total_fn = metrics.initialize_dicts_for_tags(tag_list)
+    total_tp, total_fp, total_tn, total_fn = metrics.initialize_dicts(tag_list)
     p, r, f1 = {}, {}, {}
 
     while True:
@@ -164,6 +164,7 @@ def evaluate_test_set_class_specific(session, tags, preds, batch_limit=None):
     print "Recall: ", avg_r
     print "F1: ", avg_f1
 
+
 with graph.as_default():
 
     with tf.variable_scope('rnn'):
@@ -179,7 +180,6 @@ with graph.as_default():
         test_logits, test_preds = predict(test_inputs, test_lengths)
         test_loss = cross_entropy(test_logits, test_lengths, test_tags)
 
-    saver = tf.train.Saver()
     init = tf.group(tf.global_variables_initializer(),
                     tf.local_variables_initializer())
 
@@ -189,52 +189,30 @@ with session.as_default():
     train_coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(session, train_coord)
 
-    warm_start_init_step = 49000
-    if warm_start_init_step != 0:
-        ckpt_file = 'checkpoints/{}-{}'.format(model_name, warm_start_init_step)
-        print 'restoring from ', ckpt_file
-        saver.restore(session, ckpt_file)
-
     for step_num in range(training_steps):
-
         _, batch_loss, filenames, line_nums = \
             session.run([step, loss, fnames, lines])
-
-        # logging to stdout for sanity checks every 50 steps
-        if step_num % 50 == 0:
+        if step_num % 10000 == 0:
             x, y, y_ = session.run([tokens, tags, preds])
-            if (y != 0).sum() > 0:
-                accuracy = 1.0 * ((y == y_) & (y != 0)).sum() / (y != 0).sum()
+            accuracy = 1.0 * ((y == y_) & (y != 0)).sum() / (y != 0).sum()
             precision, recall, f1 = metrics.precision_recall_f1(reader, y, y_)
+            precision_dict,recall_dict,f1_dict = metrics.precision_recall_f1_tags(reader,y,y_)
 
             # print some info about the batch
-            print 'Loss:      ', batch_loss
+        
+        
+        ''' print 'Loss:      ', batch_loss
             print 'Precision: ', precision
             print 'Recall:    ', recall
             print 'f1:        ', f1
             print 'Sentence:  ', reader.decode_tokens(x[0][(y != 0)[0]][:15])
             print 'Truth:     ', reader.decode_tags(y[0][(y != 0)[0]][:15])
             print 'Pred:      ', reader.decode_tags(y_[0][(y != 0)[0]][:15])
-            print
+            print 'precision_dict: ' , precision_dict
+            print 'recall_dict: ', recall_dict
+            print 'f1_dict: ',f1_dict '''
 
-            #print 'Test : ',  evaluate_test_set(session)
-
-        # write train accuracy to log files every 100 steps
-        if step_num % 100 == 0:
-            train_loss = 0
-            train_eval_size = 50
-            for i in range(train_eval_size):
-                train_loss += session.run([loss])[0]
-            train_loss = train_loss / float(train_eval_size)
-            with open('logs/train_log-{}.txt'.format(model_name), 'a') as log:
-                log.write('{} {}\n'.format(step_num, train_loss))
-
-        # save model parameters every 1000 steps
-        if step_num % 1000 == 0 and step_num > 0:
-            saver.save(session, 'checkpoints/{}'.format(model_name), global_step=step_num)
-
-    #evaluate_test_set(session, test_tags, test_preds, test_fnames, test_lines)
     evaluate_test_set_class_specific(session, test_tags, test_preds)
-
+    evaluate_test_set(session, test_tags, test_preds, test_fnames, test_lines)
     train_coord.request_stop()
     train_coord.join(threads)

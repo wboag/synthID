@@ -8,13 +8,14 @@ hidden_units = 64
 learning_rate = .003
 training_steps = 0
 embedding_dim = 50  # 50, 100, 200, or 300
+layers = 3
 
 graph = tf.Graph()
 session = tf.Session(graph=graph)
 reader = data_wrapper.DataReader(embedding_dim=embedding_dim, num_threads=3)
 output_units = len(reader.tag_index)
 start_time = datetime.now().strftime('%m-%d-%H-%M-%S')
-model_name = 'simple_lstm'
+model_name = 'multilayer_lstm'
 
 
 def get_batch(batch_size, train=False):
@@ -30,8 +31,8 @@ def get_batch(batch_size, train=False):
 
 
 def predict(inputs, lengths):
-    cell = tf.nn.rnn_cell.BasicLSTMCell(hidden_units)
-    a, _ = tf.nn.dynamic_rnn(cell, inputs, lengths, dtype=tf.float32)
+    cells = tf.nn.rnn_cell.MultiRNNCell([tf.nn.rnn_cell.LSTMCell(hidden_units)]*layers)
+    a, _ = tf.nn.dynamic_rnn(cells, inputs, lengths, dtype=tf.float32)
     W = tf.get_variable(
         name='fc_weights',
         initializer=tf.random_normal_initializer(),
@@ -63,7 +64,7 @@ def evaluate_test_set(session, tags, preds, fnames, lines, batch_limit=None):
     while True:
         try:
 
-            #Train All tags, eval all tags setting
+            #Train binary, eval binary setting
             y, y_, filenames, line_nums = \
                 session.run([tags, preds, fnames, lines])
             p_tp, p_fp = metrics.precision(reader, y, y_, counts=True)
@@ -109,7 +110,6 @@ def evaluate_test_set(session, tags, preds, fnames, lines, batch_limit=None):
         print 'Precision Binary:  ', precision_binary
         print 'Recall Binary:     ', recall_binary
         print 'f1 Binary:         ', f1_binary
-
 
 def evaluate_test_set_class_specific(session, tags, preds, batch_limit=None):
     batch_num = 0
@@ -164,6 +164,7 @@ def evaluate_test_set_class_specific(session, tags, preds, batch_limit=None):
     print "Recall: ", avg_r
     print "F1: ", avg_f1
 
+
 with graph.as_default():
 
     with tf.variable_scope('rnn'):
@@ -192,7 +193,6 @@ with session.as_default():
     warm_start_init_step = 49000
     if warm_start_init_step != 0:
         ckpt_file = 'checkpoints/{}-{}'.format(model_name, warm_start_init_step)
-        print 'restoring from ', ckpt_file
         saver.restore(session, ckpt_file)
 
     for step_num in range(training_steps):
@@ -217,8 +217,6 @@ with session.as_default():
             print 'Pred:      ', reader.decode_tags(y_[0][(y != 0)[0]][:15])
             print
 
-            #print 'Test : ',  evaluate_test_set(session)
-
         # write train accuracy to log files every 100 steps
         if step_num % 100 == 0:
             train_loss = 0
@@ -233,7 +231,7 @@ with session.as_default():
         if step_num % 1000 == 0 and step_num > 0:
             saver.save(session, 'checkpoints/{}'.format(model_name), global_step=step_num)
 
-    #evaluate_test_set(session, test_tags, test_preds, test_fnames, test_lines)
+#    evaluate_test_set(session, test_tags, test_preds, test_fnames, test_lines)
     evaluate_test_set_class_specific(session, test_tags, test_preds)
 
     train_coord.request_stop()
